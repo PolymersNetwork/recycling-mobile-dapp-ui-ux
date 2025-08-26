@@ -52,6 +52,14 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Eco Theme Colors
+				eco: {
+					primary: 'hsl(var(--eco-primary))',
+					'primary-light': 'hsl(var(--eco-primary-light))',
+					success: 'hsl(var(--eco-success))',
+					warning: 'hsl(var(--eco-warning))',
+					danger: 'hsl(var(--eco-danger))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
