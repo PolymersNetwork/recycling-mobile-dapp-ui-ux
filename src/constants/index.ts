@@ -1,3 +1,5 @@
+// app/constants/index.ts
+
 export const ROUTES = {
   START: '/start',
   HOME: '/',
