@@ -1,104 +1,47 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useEffect } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
-import { Progress } from "@/components/ui/progress";
 import { Badge as UiBadge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart } from "lucide-react";
-import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
-import type { Project, Badge, User } from "@/types";
+import { usePortfolio } from "@/contexts/RecyclingContext";
 
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
-const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
-
-export function HomeScreen() {
-  const { publicKey, signTransaction, sendTransaction } = useWallet();
-  const [user, setUser] = useState<User>({
-    id: "1",
-    email: "eco@user.com",
-    name: "Eco User",
-    level: 3,
-    totalTokens: 1240,
-    streakDays: 5,
-    badges: [],
-    createdAt: new Date().toISOString(),
-  });
-  const [projects, setProjects] = useState<Project[]>([]);
-  const particleRef = useRef<ParticleRef>(null);
-
-  const connection = new Connection(RPC_URL, "confirmed");
-
-  /** Simulate fetching projects */
-  useEffect(() => {
-    const mockProjects: Project[] = [
-      {
-        id: "1",
-        title: "Ocean Cleanup",
-        description: "Removing plastic from oceans and beaches.",
-        imageUrl: "/api/placeholder/400/200",
-        targetAmount: 50000,
-        currentAmount: 32750,
-        contributors: 247,
-        category: "cleanup",
-        location: "Pacific Ocean",
-        endDate: "2024-12-31",
-        createdBy: "Ocean Foundation",
-        impact: { co2Reduction: 1250, treesPlanted: 0, plasticRemoved: 25000 },
-      },
-      {
-        id: "2",
-        title: "Solar School Initiative",
-        description: "Installing solar panels in rural schools.",
-        imageUrl: "/api/placeholder/400/200",
-        targetAmount: 75000,
-        currentAmount: 18500,
-        contributors: 89,
-        category: "renewable",
-        location: "Kenya",
-        endDate: "2024-11-15",
-        createdBy: "Green Education",
-        impact: { co2Reduction: 2100, treesPlanted: 500, plasticRemoved: 0 },
-      },
-    ];
-    setProjects(mockProjects);
-  }, []);
-
-  /** Mint PLY reward */
-  const mintPLYReward = async (amount: number) => {
-    if (!publicKey || !signTransaction) return;
-    try {
-      const ata = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
-      const tx = new Transaction().add(
-        mintTo({ mint: PLY_MINT, destination: ata.address, amount, authority: publicKey, programId: TOKEN_PROGRAM_ID })
-      );
-      const signedTx = await signTransaction(tx);
-      await sendTransaction(signedTx, connection);
-      particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
-    } catch (err) {
-      console.error("Failed to mint PLY reward:", err);
-    }
-  };
+export function Home() {
+  const {
+    user,
+    balances,
+    projects,
+    nftBadges,
+    contributeProject,
+    particleRef,
+  } = usePortfolio();
 
   const handleContribute = async (projectId: string) => {
-    setProjects(prev =>
-      prev.map(p => p.id === projectId ? { ...p, currentAmount: p.currentAmount + 100, contributors: p.contributors + 1 } : p)
-    );
-    await mintPLYReward(100);
+    await contributeProject(projectId);
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      cleanup: "bg-blue-500/10 text-blue-700 border-blue-200",
+      renewable: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+      conservation: "bg-green-500/10 text-green-700 border-green-200",
+      education: "bg-purple-500/10 text-purple-700 border-purple-200",
+    };
+    return colors[category] || colors.cleanup;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
-      <ParticleEngine ref={particleRef} />
-      <MobileHeader title="Home" />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
+      <MobileHeader title="Gamified Eco Dashboard" />
 
       <main className="p-4 space-y-6">
+        {/* User Progress */}
         <EcoCard>
-          <EcoCardHeader>
+          <EcoCardHeader className="flex justify-between items-center">
             <EcoCardTitle>{user.name}'s Progress</EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent className="space-y-2">
@@ -106,10 +49,25 @@ export function HomeScreen() {
             <Progress value={(user.totalTokens % 500) / 5} className="h-4" />
             <p>Streak: {user.streakDays} days</p>
             <Progress value={(user.streakDays % 30) * 3.33} className="h-4" />
-            <p className="text-lg font-bold text-eco-primary mt-1">Tokens: {user.totalTokens}</p>
+            <p id="token-achievement" className="text-lg font-bold text-eco-primary mt-1">
+              Tokens: {user.totalTokens}
+            </p>
+
             <div className="flex flex-wrap gap-2 mt-2">
-              {user.badges.map(b => (
-                <UiBadge key={b.id} className={`capitalize bg-gray-200 text-gray-700`} title={`Unlocked: ${b.unlockedAt}`}>
+              {nftBadges.map(b => (
+                <UiBadge
+                  key={b.id}
+                  className={`capitalize ${
+                    b.rarity === "legendary"
+                      ? "bg-yellow-500/20 text-yellow-600"
+                      : b.rarity === "epic"
+                      ? "bg-purple-500/20 text-purple-600"
+                      : b.rarity === "rare"
+                      ? "bg-blue-500/20 text-blue-600"
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                  title={`Unlocked: ${b.unlockedAt}`}
+                >
                   {b.name}
                 </UiBadge>
               ))}
@@ -117,25 +75,80 @@ export function HomeScreen() {
           </EcoCardContent>
         </EcoCard>
 
-        {projects.map(project => (
-          <EcoCard key={project.id}>
-            <div className="relative aspect-[2/1] bg-gray-100 rounded-t-2xl flex items-center justify-center">
-              <p className="text-xs text-muted-foreground">Project Image</p>
-            </div>
-            <EcoCardContent>
-              <EcoCardHeader>
-                <EcoCardTitle>{project.title}</EcoCardTitle>
-                <p>{project.description}</p>
-              </EcoCardHeader>
-              <div className="mt-4 flex justify-between items-center">
-                <p>{project.currentAmount} / {project.targetAmount}</p>
-                <EcoButton variant="eco" onClick={() => handleContribute(project.id)}>
-                  <Heart className="w-4 h-4" /> Contribute
-                </EcoButton>
+        {/* Projects */}
+        <div className="space-y-4">
+          {projects.map(project => (
+            <EcoCard key={project.id} variant="elevated">
+              <div className="relative">
+                <div className="aspect-[2/1] bg-gradient-to-br from-eco-primary-light/20 to-eco-primary/10 rounded-t-2xl flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground">Project Image</p>
+                </div>
+                <UiBadge className={`absolute top-3 right-3 ${getCategoryColor(project.category)}`}>
+                  {project.category}
+                </UiBadge>
               </div>
-            </EcoCardContent>
-          </EcoCard>
-        ))}
+              <EcoCardContent>
+                <EcoCardHeader>
+                  <EcoCardTitle>{project.title}</EcoCardTitle>
+                  <p>{project.description}</p>
+                </EcoCardHeader>
+                <div className="mt-4 flex justify-between items-center">
+                  <p>{project.currentAmount} / {project.targetAmount}</p>
+                  <EcoButton variant="eco" onClick={() => handleContribute(project.id)}>
+                    <Heart className="w-4 h-4" /> Contribute
+                  </EcoButton>
+                </div>
+              </EcoCardContent>
+            </EcoCard>
+          ))}
+        </div>
+
+        {/* Tabs: Balances + NFT Badges */}
+        <Tabs defaultValue="balances" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="balances">Balances</TabsTrigger>
+            <TabsTrigger value="badges">NFT Badges</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="balances" className="space-y-3">
+            {balances.map(b => (
+              <EcoCard key={b.symbol} variant="elevated">
+                <EcoCardContent className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                    {b.symbol}
+                  </div>
+                  <div>
+                    <p className="font-semibold">{b.symbol}</p>
+                    <p className="text-sm text-muted-foreground">{b.amount.toLocaleString()}</p>
+                  </div>
+                </EcoCardContent>
+              </EcoCard>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="badges" className="grid grid-cols-2 gap-4">
+            {nftBadges.map(b => (
+              <EcoCard key={b.id} variant="elevated">
+                <EcoCardContent className="flex flex-col items-center space-y-2">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center">
+                    <img src={b.icon} alt={b.name} className="w-16 h-16 rounded-full" />
+                  </div>
+                  <p className="font-medium text-center">{b.name}</p>
+                  {b.unlockedAt && <p className="text-xs text-muted-foreground">{new Date(b.unlockedAt).toLocaleDateString()}</p>}
+                  <UiBadge className={`capitalize ${
+                    b.rarity === "legendary"
+                      ? "bg-yellow-500/20 text-yellow-600"
+                      : b.rarity === "epic"
+                      ? "bg-purple-500/20 text-purple-600"
+                      : b.rarity === "rare"
+                      ? "bg-blue-500/20 text-blue-600"
+                      : "bg-gray-200 text-gray-700"
+                  }`}>{b.rarity}</UiBadge>
+                </EcoCardContent>
+              </EcoCard>
+            ))}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
