@@ -2,13 +2,16 @@ import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Zap, Target, Settings } from "lucide-react";
+import { Trophy, Zap, Target } from "lucide-react";
+import { useRecycling } from "@/contexts/RecyclingContext";
 
 export function Profile() {
+  const { plyBalance, crtBalance, units, badges } = useRecycling();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
       <MobileHeader title="Profile" showSettings />
-      
+
       <main className="p-4 space-y-6">
         {/* Profile Header */}
         <EcoCard variant="eco">
@@ -16,15 +19,15 @@ export function Profile() {
             <div className="flex items-center space-x-4">
               <Avatar className="w-16 h-16">
                 <AvatarFallback className="bg-white text-eco-primary text-xl font-bold">
-                  A
+                  U
                 </AvatarFallback>
               </Avatar>
               <div className="text-white">
-                <h2 className="text-xl font-bold">Alex Green</h2>
-                <p className="text-eco-primary-light">Level 12 Eco Warrior</p>
+                <h2 className="text-xl font-bold">Underdog User</h2>
+                <p className="text-eco-primary-light">Eco Champion</p>
                 <div className="flex items-center space-x-2 mt-2">
                   <Zap className="w-4 h-4" />
-                  <span className="text-sm">7 day streak</span>
+                  <span className="text-sm">{units} scans</span>
                 </div>
               </div>
             </div>
@@ -36,21 +39,21 @@ export function Profile() {
           <EcoCard padding="sm">
             <div className="text-center">
               <Trophy className="w-6 h-6 text-eco-warning mx-auto mb-2" />
-              <p className="text-lg font-bold">12</p>
+              <p className="text-lg font-bold">{badges.length}</p>
               <p className="text-xs text-muted-foreground">Badges</p>
             </div>
           </EcoCard>
           <EcoCard padding="sm">
             <div className="text-center">
               <Target className="w-6 h-6 text-eco-success mx-auto mb-2" />
-              <p className="text-lg font-bold">2.8K</p>
-              <p className="text-xs text-muted-foreground">POLY Earned</p>
+              <p className="text-lg font-bold">{plyBalance}</p>
+              <p className="text-xs text-muted-foreground">PLY Earned</p>
             </div>
           </EcoCard>
           <EcoCard padding="sm">
             <div className="text-center">
               <Zap className="w-6 h-6 text-eco-primary mx-auto mb-2" />
-              <p className="text-lg font-bold">156</p>
+              <p className="text-lg font-bold">{units}</p>
               <p className="text-xs text-muted-foreground">Scans</p>
             </div>
           </EcoCard>
@@ -63,12 +66,14 @@ export function Profile() {
           </EcoCardHeader>
           <EcoCardContent>
             <div className="grid grid-cols-4 gap-3">
-              {["🌱", "🏆", "⚡", "🎯"].map((emoji, i) => (
+              {badges.slice(-4).map((badge, i) => (
                 <div key={i} className="text-center">
                   <div className="w-12 h-12 bg-eco-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-xl">{emoji}</span>
+                    <span className="text-xl">{badge.emoji || "🏆"}</span>
                   </div>
-                  <Badge variant="secondary" className="text-xs">New</Badge>
+                  <Badge variant={badge.unlocked ? "default" : "secondary"} className="text-xs">
+                    {badge.name}
+                  </Badge>
                 </div>
               ))}
             </div>
