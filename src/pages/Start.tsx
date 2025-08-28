@@ -8,7 +8,12 @@ import { useWallet } from "@/hooks/useWallet";
 import { eventsService } from "@/services/events";
 import { ROUTES } from "@/constants";
 
-export function Start() {
+interface StartProps {
+  logoUrl?: string;
+  appName?: string;
+}
+
+export function Start({ logoUrl, appName = "Polymers" }: StartProps) {
   const navigate = useNavigate();
   const { connectWallet, isConnecting } = useWallet();
   const [selectedWallet, setSelectedWallet] = useState<string>('');
@@ -19,7 +24,7 @@ export function Start() {
       await connectWallet(walletType);
       eventsService.trackWalletConnect(walletType);
       navigate(ROUTES.HOME);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Wallet connection failed:', error);
       eventsService.trackError('wallet_connection_failed', { walletType, error: error.message });
     }
@@ -32,14 +37,19 @@ export function Start() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-eco-primary/5 p-4">
       <div className="max-w-md mx-auto space-y-6">
+
         {/* Header */}
         <div className="text-center space-y-4 pt-12">
-          <div className="w-20 h-20 mx-auto bg-gradient-to-br from-eco-primary to-eco-success rounded-full flex items-center justify-center">
-            <Leaf className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-eco-primary to-eco-success">
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="w-full h-full object-cover" />
+            ) : (
+              <Leaf className="w-10 h-10 text-white" />
+            )}
           </div>
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-eco-primary to-eco-success bg-clip-text text-transparent">
-              Polymers
+              {appName}
             </h1>
             <p className="text-lg text-muted-foreground mt-2">
               Earn PLY tokens by recycling plastic
