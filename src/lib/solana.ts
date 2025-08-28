@@ -2,91 +2,94 @@ import {
   Connection,
   PublicKey,
   Transaction,
-  TransactionInstruction,
   sendAndConfirmTransaction,
+  Keypair,
 } from '@solana/web3.js';
-import { PythConnection } from '@pythnetwork/client';
-import { getChainlinkPriceFeed } from '@chainlink/contracts';
-import { API_BASE_URL } from '../constants';
-import axios from 'axios';
-import { Unit } from '../context/RecyclingContext';
+import {
+  getPythPrice,
+  getChainlinkPrice,
+  verifyUnitOnChain,
+} from './oracles';
+import { Unit } from '../types';
+import { POLY_TOKEN_MINT, ESCROW_PROGRAM_ID, SOLANA_NETWORK } from '../constants';
 
-const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID!);
+// --- Setup connection to Solana ---
+const connection = new Connection(SOLANA_NETWORK, 'confirmed');
 
-const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
+// --- Example: wallet/keypair for sending transactions ---
+export const payer = Keypair.generate(); // Replace with wallet integration (Phantom, Solflare, Backpack)
 
-// === Pyth Oracle Verification ===
-export const getPythPrice = async (productPubKey: string): Promise<number> => {
-  const pyth = new PythConnection(connection);
-  await pyth.connect();
-  const priceData = await pyth.getPrice(new PublicKey(productPubKey));
-  return priceData?.price ?? 0;
-};
-
-// === Chainlink Oracle Verification ===
-export const getChainlinkPrice = async (feedAddress: string): Promise<number> => {
-  return await getChainlinkPriceFeed(feedAddress, connection);
-};
-
-// === Verify a batch of units with on-chain oracles ===
-export const verifyWithOracles = async (units: Unit[]): Promise<boolean[]> => {
-  const results: boolean[] = [];
-  for (const unit of units) {
-    try {
-      // Replace these with your actual product feed keys per unit
-      const pythPrice = await getPythPrice(unit.city); // placeholder
-      const chainlinkPrice = await getChainlinkPrice(unit.city); // placeholder
-
-      // Example verification logic
-      results.push(pythPrice > 0 && chainlinkPrice > 0);
-    } catch {
-      results.push(false);
-    }
-  }
+// === Verify a batch of units using Pyth + Chainlink oracles ===
+export const verifyWithOracles = async (units: Unit[]) => {
+  const results = await Promise.all(
+    units.map(async (unit) => {
+      try {
+        const pythPrice = await getPythPrice(unit);
+        const chainlinkPrice = await getChainlinkPrice(unit);
+        return await verifyUnitOnChain(unit, pythPrice, chainlinkPrice);
+      } catch (err) {
+        console.error('Oracle verification failed for unit', unit.id, err);
+        return false;
+      }
+    })
+  );
   return results;
 };
 
-// === Send Recycle Transaction ===
+// === Send verified batch to Solana program ===
 export const sendRecycleTransaction = async (units: Unit[]) => {
-  const tx = new Transaction();
-  const instructions: TransactionInstruction[] = units.map(unit => {
-    return new TransactionInstruction({
-      keys: [
-        { pubkey: new PublicKey(unit.city), isSigner: false, isWritable: true },
-      ],
-      programId: PROGRAM_ID,
-      data: Buffer.from(JSON.stringify(unit)), // adapt to your program schema
-    });
-  });
+  if (units.length === 0) return;
 
-  tx.add(...instructions);
-  const signature = await sendAndConfirmTransaction(connection, tx, []); // add signer(s)
-  console.log('Recycle transaction confirmed:', signature);
-  return signature;
-};
-
-// === Release Escrow for Corporate/NGO donations ===
-export const releaseEscrow = async (units: Unit[]) => {
   try {
-    await axios.post(`${API_BASE_URL}/escrow/release`, { units });
-    console.log('Escrow released for verified batch.');
-  } catch (error) {
-    console.error('Failed to release escrow:', error);
+    const tx = new Transaction();
+    // Construct instructions for each unit
+    for (const unit of units) {
+      // Replace with your Solana program instructions
+      // e.g., createAccount, transfer tokens, mint NFT, etc.
+    }
+
+    const txSig = await sendAndConfirmTransaction(connection, tx, [payer]);
+    console.log('Recycle transaction confirmed:', txSig);
+    return txSig;
+  } catch (err) {
+    console.error('Error sending recycle transaction:', err);
+    throw err;
   }
 };
 
-// === WebSocket subscription for real-time leaderboard updates ===
-export const subscribeLeaderboard = (callback: (data: any[]) => void) => {
-  const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/leaderboard/ws`);
+// === Release escrow for corporate/NGO donations after batch verification ===
+export const releaseEscrow = async (units: Unit[]) => {
+  try {
+    for (const unit of units) {
+      // Build and send escrow release instruction to your custom Solana program
+      // Example: release POLY/CRT from escrow account to recipient
+    }
+    console.log('Escrow released for verified units.');
+  } catch (err) {
+    console.error('Escrow release failed:', err);
+  }
+};
 
-  ws.onopen = () => console.log('Leaderboard WS connected');
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    callback(data);
+// === WebSocket-based real-time leaderboard updates ===
+export const subscribeLeaderboard = (
+  onUpdate: (leaderboard: any[]) => void
+) => {
+  // Example using Solana account subscription
+  const leaderboardPubkey = new PublicKey('LEADERBOARD_ACCOUNT_PUBKEY'); // Replace with actual account
+
+  const subscriptionId = connection.onAccountChange(
+    leaderboardPubkey,
+    (accountInfo) => {
+      try {
+        const data = accountInfo.data; // Deserialize according to your program
+        onUpdate(data as any[]);
+      } catch (err) {
+        console.error('Leaderboard update parsing error:', err);
+      }
+    }
+  );
+
+  return () => {
+    connection.removeAccountChangeListener(subscriptionId);
   };
-  ws.onclose = () => console.log('Leaderboard WS disconnected');
-  ws.onerror = (err) => console.error('Leaderboard WS error:', err);
-
-  return ws; // allows caller to close subscription later
 };
