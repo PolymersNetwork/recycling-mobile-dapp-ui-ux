@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Project } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const mockProjects: Project[] = [
   {
@@ -43,46 +44,76 @@ const mockProjects: Project[] = [
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const fetchProjects = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setProjects(mockProjects);
+    } catch (err) {
+      toast({ title: 'Failed to load projects', variant: 'destructive' });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const contributeToProject = async (projectId: string, amount: number, currency: 'PLY' | 'USDC' | 'SOL') => {
     setLoading(true);
-    
-    // Simulate contribution
-    setTimeout(() => {
-      setProjects(prev => prev.map(project => 
-        project.id === projectId 
-          ? { ...project, currentAmount: project.currentAmount + amount, contributors: project.contributors + 1 }
-          : project
-      ));
+    try {
+      // Simulate blockchain/web3 contribution
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setProjects(prev =>
+        prev.map(project =>
+          project.id === projectId
+            ? {
+                ...project,
+                currentAmount: project.currentAmount + amount,
+                contributors: project.contributors + 1
+              }
+            : project
+        )
+      );
+
+      toast({
+        title: 'Contribution Successful',
+        description: `You contributed ${amount} ${currency} to ${projects.find(p => p.id === projectId)?.title}`,
+      });
+    } catch (err) {
+      toast({ title: 'Contribution Failed', variant: 'destructive' });
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   const createProject = async (projectData: Omit<Project, 'id' | 'currentAmount' | 'contributors'>) => {
     setLoading(true);
-    
-    const newProject: Project = {
-      ...projectData,
-      id: Date.now().toString(),
-      currentAmount: 0,
-      contributors: 0
-    };
-    
-    setTimeout(() => {
+    try {
+      const newProject: Project = {
+        ...projectData,
+        id: Date.now().toString(),
+        currentAmount: 0,
+        contributors: 0
+      };
+
+      // Simulate API call / blockchain submission
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setProjects(prev => [newProject, ...prev]);
+
+      toast({
+        title: 'Project Created',
+        description: `Project "${newProject.title}" has been successfully added.`,
+      });
+
+      return newProject;
+    } catch (err) {
+      toast({ title: 'Project Creation Failed', variant: 'destructive' });
+      throw err;
+    } finally {
       setLoading(false);
-    }, 2000);
-    
-    return newProject;
+    }
   };
 
   useEffect(() => {
