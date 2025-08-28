@@ -1,92 +1,66 @@
-import { useState, useEffect } from "react";
-import { MarketplaceItem } from "@/types";
-import { TOKEN_METADATA } from "@/constants";
+"use client";
 
-const mockItems: MarketplaceItem[] = [
-  {
-    id: "1",
-    title: "Carbon Credit Pack",
-    description: "Offset 100kg CO2 emissions",
-    imageUrl: "https://images.unsplash.com/photo-1581091870620-0d7f52f0e0e5?w=400&h=300",
-    price: 50,
-    currency: "PLY",
-    type: "carbon-credit",
-    seller: "EcoFund",
-    available: true,
-    category: "carbon-offset",
-  },
-  {
-    id: "2",
-    title: "Reusable Bottle",
-    description: "Eco-friendly stainless steel bottle",
-    imageUrl: "https://images.unsplash.com/photo-1556911073-52527ac437f5?w=400&h=300",
-    price: 25,
-    currency: "USDC",
-    type: "eco-product",
-    seller: "EcoStore",
-    available: true,
-    category: "products",
-  },
-  {
-    id: "3",
-    title: "Plant a Tree Donation",
-    description: "Support tree planting campaigns worldwide",
-    imageUrl: "https://images.unsplash.com/photo-1600185362811-0d6c3a2b12b6?w=400&h=300",
-    price: 10,
-    currency: "SOL",
-    type: "donation",
-    seller: "GreenWorld",
-    available: true,
-    category: "donations",
-  },
-];
+import React, { useRef, useState } from "react";
+import { View, ScrollView, Text, Image, TouchableOpacity } from "react-native";
+import { MobileHeader } from "../components/mobile/MobileHeader";
+import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "../components/ui/eco-card";
+import { useMarketplace } from "../hooks/useMarketplace";
+import { useWallet } from "../contexts/WalletContext";
+import { ParticleEngine, ParticleRef } from "../components/ui/ParticleEngine";
+import { AnimatedCounter } from "../components/ui/AnimatedCounter";
+import { Zap } from "lucide-react";
 
-export function useMarketplace() {
-  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
-  const [loading, setLoading] = useState(false);
+export function Marketplace() {
+  const { marketplaceItems, purchaseItem, loading } = useMarketplace();
+  const { wallet } = useWallet();
+  const particleRef = useRef<ParticleRef>(null);
+  const [purchases, setPurchases] = useState<{ [key: string]: boolean }>({});
 
-  /** Simulate fetching marketplace items */
-  const fetchMarketplace = async () => {
-    setLoading(true);
-    setTimeout(() => {
-      setMarketplaceItems(mockItems);
-      setLoading(false);
-    }, 1000);
+  const handlePurchase = async (itemId: string) => {
+    if (!wallet) return alert("Connect your wallet first!");
+    try {
+      await purchaseItem(itemId);
+      setPurchases(prev => ({ ...prev, [itemId]: true }));
+      particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
+    } catch (err) {
+      console.error(err);
+      alert("Purchase failed or item unavailable");
+    }
   };
 
-  /** Purchase an item (simulate blockchain transaction) */
-  const purchaseItem = async (itemId: string) => {
-    const item = marketplaceItems.find(i => i.id === itemId);
-    if (!item || !item.available) throw new Error("Item not available");
+  return (
+    <View className="flex-1 bg-background">
+      <ParticleEngine ref={particleRef} />
 
-    setLoading(true);
-    return new Promise<MarketplaceItem>((resolve) => {
-      setTimeout(() => {
-        setMarketplaceItems(prev =>
-          prev.map(i => i.id === itemId ? { ...i, available: false } : i)
-        );
-        setLoading(false);
-        resolve(item);
-      }, 2000);
-    });
-  };
+      <MobileHeader title="Marketplace" />
 
-  /** Filter items by type or category */
-  const filterItems = (type?: MarketplaceItem["type"], category?: string) => {
-    return marketplaceItems.filter(item => 
-      (!type || item.type === type) && (!category || item.category === category)
-    );
-  };
-
-  useEffect(() => {
-    fetchMarketplace();
-  }, []);
-
-  return {
-    marketplaceItems,
-    loading,
-    fetchMarketplace,
-    purchaseItem,
-    filterItems,
-  };
+      <ScrollView className="p-4 space-y-4">
+        {marketplaceItems.map(item => (
+          <EcoCard key={item.id}>
+            <EcoCardHeader>
+              <EcoCardTitle>{item.title}</EcoCardTitle>
+            </EcoCardHeader>
+            <EcoCardContent className="space-y-2">
+              <Image source={{ uri: item.imageUrl }} className="w-full h-40 rounded-lg" />
+              <Text className="text-sm text-muted-foreground">{item.description}</Text>
+              <View className="flex-row justify-between items-center mt-2">
+                <Text className="font-bold">{item.price} {item.currency}</Text>
+                <TouchableOpacity
+                  disabled={loading || !item.available || purchases[item.id]}
+                  onPress={() => handlePurchase(item.id)}
+                  className={`px-3 py-1 rounded ${
+                    item.available && !purchases[item.id] ? "bg-eco-primary" : "bg-gray-400"
+                  }`}
+                >
+                  <Text className="text-white text-sm">
+                    {purchases[item.id] ? "Purchased" : "Buy"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </EcoCardContent>
+          </EcoCard>
+        ))}
+      </ScrollView>
+    </View>
+  );
 }
