@@ -1,86 +1,59 @@
-import React, { useRef } from "react";
-import { View, ScrollView } from "react-native";
+"use client";
+
+import React, { useEffect, useState, useRef } from "react";
+import { View, ScrollView, Text } from "react-native";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
-import { Badge } from "@/components/ui/badge";
 import { EcoButton } from "@/components/ui/eco-button";
-import { ShoppingCart } from "lucide-react";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 import { useRecycling } from "@/contexts/RecyclingContext";
-import { ParticleEngine, ParticleRef, triggerParticles } from "@/components/ui/ParticleEngine";
-import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
+import { Zap } from "lucide-react";
 
 export function Marketplace() {
-  const { plyBalance, crtBalance, badges, marketplace, refreshBalances, submitBatch } = useRecycling();
+  const { plyBalance, mintPLY } = useRecycling();
   const particleRef = useRef<ParticleRef>(null);
+  const [items, setItems] = useState([
+    { id: "1", title: "Eco Badge", price: 100, currency: "PLY" },
+    { id: "2", title: "Reusable Bottle", price: 250, currency: "PLY" },
+  ]);
 
-  const handlePurchase = async (item: any) => {
-    // Update balances & mint on-chain
-    await submitBatch(); // simplified; integrates minting
-    refreshBalances();
-
-    // Particle + badge effects
-    triggerParticles(particleRef.current!, "combo");
+  const handlePurchase = async (itemId: string, price: number) => {
+    try {
+      await mintPLY(price); // Deduct/mint PLY from user wallet
+      particleRef.current?.burstCoins({ count: 30, color: "#FFD700" });
+      setItems(prev => prev.filter(i => i.id !== itemId));
+    } catch (err) {
+      console.error("Purchase failed:", err);
+    }
   };
 
-  const items = [
-    { id: 1, title: "Carbon Credits", price: 50, currency: "PLY", type: "credit" },
-    { id: 2, title: "Eco Water Bottle", price: 25, currency: "CRT", type: "product" },
-    { id: 3, title: "Tree Planting", price: 100, currency: "PLY", type: "donation" },
-  ];
-
   return (
-    <View className="flex-1 bg-gradient-to-br from-background to-muted">
+    <View style={{ flex: 1, backgroundColor: "#111" }}>
       <ParticleEngine ref={particleRef} />
+
       <MobileHeader title="Marketplace" />
 
-      <ScrollView className="p-4 space-y-6">
-        {/* Counters */}
+      <ScrollView style={{ padding: 16 }} contentContainerStyle={{ paddingBottom: 32 }}>
         <EcoCard>
-          <EcoCardContent className="flex-row justify-around">
-            <View>
-              <AnimatedCounter value={plyBalance} suffix=" PLY" />
-            </View>
-            <View>
-              <AnimatedCounter value={crtBalance} suffix=" CRT" />
-            </View>
-          </EcoCardContent>
+          <EcoCardHeader>
+            <EcoCardTitle>PLY Balance: {plyBalance}</EcoCardTitle>
+          </EcoCardHeader>
         </EcoCard>
 
-        {/* Marketplace Items */}
         {items.map(item => (
-          <EcoCard key={item.id}>
-            <EcoCardHeader>
-              <EcoCardTitle>{item.title}</EcoCardTitle>
-            </EcoCardHeader>
-            <EcoCardContent className="flex-row justify-between items-center">
-              <View>
-                <Badge>{item.type}</Badge>
+          <EcoCard key={item.id} style={{ marginTop: 16 }}>
+            <EcoCardContent style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: "#fff", fontSize: 16 }}>{item.title}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ color: "#FFD700" }}>{item.price} PLY</Text>
+                <EcoButton onPress={() => handlePurchase(item.id, item.price)}>
+                  <Zap color="#fff" size={16} />
+                  Buy
+                </EcoButton>
               </View>
-              <EcoButton onPress={() => handlePurchase(item)}>
-                <ShoppingCart />
-                Buy {item.price} {item.currency}
-              </EcoButton>
             </EcoCardContent>
           </EcoCard>
         ))}
-
-        {/* Badge Showcase */}
-        <EcoCard>
-          <EcoCardHeader>
-            <EcoCardTitle>Your Badges</EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent className="flex-row flex-wrap">
-            {badges.map(badge => (
-              <Badge
-                key={badge.id}
-                variant={badge.unlocked ? "default" : "secondary"}
-                onPress={() => triggerParticles(particleRef.current!, badge.rarity)}
-              >
-                {badge.name}
-              </Badge>
-            ))}
-          </EcoCardContent>
-        </EcoCard>
       </ScrollView>
     </View>
   );
