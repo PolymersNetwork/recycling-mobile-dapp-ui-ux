@@ -1,63 +1,65 @@
 "use client";
 
 import { useRef } from "react";
+import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
 import { Badge as UiBadge } from "@/components/ui/badge";
-import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
-import { usePortfolio } from "@/hooks/usePortfolio";
 import { Heart } from "lucide-react";
+import { usePortfolio } from "@/hooks/usePortfolio";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 
 export default function Marketplace() {
-  const { projects, contributeToProject, nftBadges } = usePortfolio();
   const particleRef = useRef<ParticleRef>(null);
-
-  const mockItems = [
-    { id: "1", title: "Carbon Credit Pack", description: "Offset 100kg CO2", price: 50, currency: "PLY", category: "carbon-offset" },
-    { id: "2", title: "Reusable Bottle", description: "Eco-friendly bottle", price: 25, currency: "USDC", category: "products" },
-    { id: "3", title: "Plant a Tree Donation", description: "Support tree planting", price: 10, currency: "SOL", category: "donations" },
-  ];
+  const { marketplaceItems, purchaseMarketplaceItem } = usePortfolio();
 
   const handlePurchase = async (itemId: string) => {
-    const item = mockItems.find(i => i.id === itemId);
-    if (!item) return;
+    await purchaseMarketplaceItem(itemId);
 
-    // Simulate purchase + gamified reward
-    await contributeToProject(item.id, item.price); 
-    particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
-    particleRef.current?.sparkleBadge({ count: 10, color: "#FFAA00" });
+    // Particle + badge reward
+    particleRef.current?.burstCoins({ count: 25, color: "#FFD700" });
+    particleRef.current?.sparkleBadge({ count: 10, color: "#4B6EE2" });
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      "carbon-offset": "bg-blue-500/10 text-blue-700 border-blue-200",
+      products: "bg-green-500/10 text-green-700 border-green-200",
+      donations: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+    };
+    return colors[category] || colors["carbon-offset"];
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
       <ParticleEngine ref={particleRef} />
-      <main className="p-4 space-y-4">
-        {mockItems.map(item => (
+      <MobileHeader title="Marketplace" />
+
+      <main className="p-4 space-y-6">
+        {marketplaceItems.map(item => (
           <EcoCard key={item.id} variant="elevated">
-            <EcoCardHeader>
-              <EcoCardTitle>{item.title}</EcoCardTitle>
-            </EcoCardHeader>
+            <div className="relative">
+              <div className="aspect-[2/1] bg-gradient-to-br from-eco-primary-light/20 to-eco-primary/10 rounded-t-2xl flex items-center justify-center">
+                <p className="text-xs text-muted-foreground">Item Image</p>
+              </div>
+              <UiBadge className={`absolute top-3 right-3 ${getCategoryColor(item.category)}`}>
+                {item.category}
+              </UiBadge>
+            </div>
             <EcoCardContent>
-              <p>{item.description}</p>
+              <EcoCardHeader>
+                <EcoCardTitle>{item.title}</EcoCardTitle>
+                <p>{item.description}</p>
+              </EcoCardHeader>
               <div className="mt-4 flex justify-between items-center">
-                <span>{item.price} {item.currency}</span>
-                <EcoButton variant="eco" onClick={() => handlePurchase(item.id)}>
-                  <Heart className="w-4 h-4" /> Buy
+                <p>{item.price} {item.currency}</p>
+                <EcoButton variant="eco" disabled={!item.available} onClick={() => handlePurchase(item.id)}>
+                  <Heart className="w-4 h-4" /> {item.available ? "Buy" : "Sold"}
                 </EcoButton>
               </div>
             </EcoCardContent>
           </EcoCard>
         ))}
-
-        <h3 className="text-lg font-bold mt-6">Your NFT Badges</h3>
-        <div className="grid grid-cols-4 gap-3 mt-2">
-          {nftBadges.map(b => (
-            <div key={b.id} className="text-center">
-              <img src={b.icon} className="w-12 h-12 rounded-full mx-auto mb-1" />
-              <UiBadge className="text-xs">{b.name}</UiBadge>
-            </div>
-          ))}
-        </div>
       </main>
     </div>
   );
