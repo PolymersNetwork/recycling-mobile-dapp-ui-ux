@@ -1,36 +1,56 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Confetti from "react-confetti";
+import useSound from "use-sound";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoButton } from "@/components/ui/eco-button";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, MapPin, QrCode, Wifi } from "lucide-react";
+import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, QrCode, Wifi } from "lucide-react";
 import { useCamera } from "@/hooks/useCamera";
 import { useToast } from "@/hooks/use-toast";
-import { eventsService } from "@/services/events";
+import { useRecycling } from "@/contexts/RecyclingContext";
+import { useProjects } from "@/hooks/useProjects";
+import { useMarketplace } from "@/hooks/useMarketplace";
+import scanSuccessSound from "@/assets/sounds/scan-success.mp3";
 
 export function Scan() {
   const { isScanning, scanResult, cameraType, capturePhoto, scanQRCode, scanNFC, uploadFromGallery, clearResult } = useCamera();
   const { toast } = useToast();
+  const { plyBalance, crtBalance, units, logRecycleUnit, submitBatch, badges, cityMetrics } = useRecycling();
+  const { projects, contributeToProject } = useProjects();
+  const { marketplaceItems } = useMarketplace();
+  const [play] = useSound(scanSuccessSound);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const handleScan = async (type: 'camera' | 'qr' | 'nfc' = 'camera') => {
     try {
-      eventsService.trackRecycleStart(type);
-      
+      let result;
       switch (type) {
         case 'camera':
-          await capturePhoto();
+          result = await capturePhoto();
           break;
         case 'qr':
-          await scanQRCode();
+          result = await scanQRCode();
           break;
         case 'nfc':
-          await scanNFC();
+          result = await scanNFC();
           break;
       }
+
+      if (result?.verified) {
+        logRecycleUnit({
+          city: result.location || "Unknown",
+          lat: 0,
+          lng: 0
+        });
+        play();
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }
     } catch (error) {
-      console.error('Scan failed:', error);
-      eventsService.trackError('scan_failed', { type, error: error.message });
+      console.error(error);
+      toast({ title: "Scan failed", description: "Please try again", variant: "destructive" });
     }
   };
 
@@ -39,176 +59,138 @@ export function Scan() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-24 relative">
       <MobileHeader title="Scan Plastic" />
+
+      {showConfetti && <Confetti recycle={false} numberOfPieces={200} />}
       
       <main className="p-4 space-y-6">
-        {/* Camera View */}
+        {/* Scan Panel */}
         <EcoCard variant="elevated" padding="none">
-          <div className="relative">
-            <div className="aspect-[4/3] bg-gradient-to-br from-muted to-muted-foreground/20 rounded-t-2xl flex items-center justify-center">
-              {isScanning ? (
-                <div className="text-center space-y-4">
-                  <Loader2 className="w-12 h-12 text-eco-primary animate-spin mx-auto" />
-                  <div className="space-y-2">
-                    <p className="text-lg font-semibold text-foreground">
-                      {cameraType === 'camera' && 'Analyzing Photo...'}
-                      {cameraType === 'qr' && 'Reading QR Code...'}
-                      {cameraType === 'nfc' && 'Processing NFC...'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {cameraType === 'camera' && 'AI is detecting plastic type'}
-                      {cameraType === 'qr' && 'Connecting to smart bin'}
-                      {cameraType === 'nfc' && 'Verifying smart collection point'}
-                    </p>
-                    <Progress value={75} className="w-48 mx-auto" />
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center space-y-4">
-                  <Camera className="w-16 h-16 text-muted-foreground mx-auto" />
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">Ready to Scan</p>
-                    <p className="text-sm text-muted-foreground">Point camera at plastic items</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Scan Overlay */}
-            <div className="absolute inset-4 border-2 border-eco-primary/30 rounded-lg pointer-events-none">
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-eco-primary rounded-tl-lg"></div>
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-eco-primary rounded-tr-lg"></div>
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-eco-primary rounded-bl-lg"></div>
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-eco-primary rounded-br-lg"></div>
-            </div>
+          <div className="relative aspect-[4/3] bg-muted rounded-2xl flex items-center justify-center">
+            {isScanning ? (
+              <div className="text-center space-y-2">
+                <Loader2 className="w-12 h-12 text-eco-primary animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground">Processing {cameraType}</p>
+                <Progress value={75} className="w-48 mx-auto" />
+              </div>
+            ) : (
+              <div className="text-center">
+                <Camera className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
+                <p className="font-semibold">Ready to Scan</p>
+              </div>
+            )}
           </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <EcoButton 
-                variant="eco" 
-                onClick={() => handleScan('camera')}
-                disabled={isScanning}
-                className="h-14"
-              >
-                <Camera className="w-5 h-5" />
-                {isScanning && cameraType === 'camera' ? "Scanning..." : "Camera"}
-              </EcoButton>
-              
-              <EcoButton 
-                variant="eco-outline" 
-                onClick={() => handleScan('qr')}
-                disabled={isScanning}
-                className="h-14"
-              >
-                <QrCode className="w-5 h-5" />
-                {isScanning && cameraType === 'qr' ? "Reading..." : "QR Code"}
-              </EcoButton>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <EcoButton 
-                variant="eco-outline" 
-                onClick={() => handleScan('nfc')}
-                disabled={isScanning}
-                className="h-14"
-              >
-                <Wifi className="w-5 h-5" />
-                {isScanning && cameraType === 'nfc' ? "Processing..." : "NFC Scan"}
-              </EcoButton>
-              
-              <EcoButton 
-                variant="eco-outline" 
-                onClick={handleUpload}
-                className="h-14"
-              >
-                <Upload className="w-5 h-5" />
-                Upload Photo
-              </EcoButton>
-            </div>
+
+          <div className="p-4 grid grid-cols-2 gap-3">
+            <EcoButton onClick={() => handleScan('camera')} disabled={isScanning} className="h-14">
+              <Camera className="w-5 h-5" /> {isScanning && cameraType === 'camera' ? 'Scanning...' : 'Camera'}
+            </EcoButton>
+            <EcoButton onClick={() => handleScan('qr')} disabled={isScanning} className="h-14">
+              <QrCode className="w-5 h-5" /> {isScanning && cameraType === 'qr' ? 'Reading...' : 'QR Code'}
+            </EcoButton>
+            <EcoButton onClick={() => handleScan('nfc')} disabled={isScanning} className="h-14">
+              <Wifi className="w-5 h-5" /> {isScanning && cameraType === 'nfc' ? 'Processing...' : 'NFC Scan'}
+            </EcoButton>
+            <EcoButton onClick={handleUpload} className="h-14">
+              <Upload className="w-5 h-5" /> Upload
+            </EcoButton>
           </div>
         </EcoCard>
 
         {/* Scan Result */}
         {scanResult && (
-          <EcoCard variant="eco">
+          <EcoCard>
             <EcoCardHeader>
               <EcoCardTitle className="flex items-center space-x-2">
                 <CheckCircle className="w-5 h-5 text-eco-success" />
                 <span>Scan Result</span>
               </EcoCardTitle>
             </EcoCardHeader>
-            <EcoCardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Plastic Type</span>
-                  <Badge variant="secondary">{scanResult.plasticType}</Badge>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Confidence</span>
-                  <div className="flex items-center space-x-2">
-                    <Progress value={scanResult.confidence * 100} className="w-16 h-2" />
-                    <span className="text-sm font-medium">{Math.round(scanResult.confidence * 100)}%</span>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Tokens Earned</span>
-                  <div className="flex items-center space-x-1">
-                    <Zap className="w-4 h-4 text-eco-success" />
-                    <span className="font-bold text-eco-success">+{scanResult.tokensEarned} PLY</span>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant={scanResult.verified ? "default" : "secondary"}>
-                    {scanResult.verified ? "Verified" : "Pending"}
-                  </Badge>
-                </div>
+            <EcoCardContent className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Plastic Type</span>
+                <Badge variant="secondary">{scanResult.plasticType}</Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Confidence</span>
+                <Progress value={scanResult.confidence * 100} className="w-32" />
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Tokens Earned</span>
+                <span className="font-bold text-eco-success">+{scanResult.tokensEarned} PLY</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Status</span>
+                <Badge variant={scanResult.verified ? 'default' : 'secondary'}>
+                  {scanResult.verified ? 'Verified' : 'Pending'}
+                </Badge>
               </div>
             </EcoCardContent>
           </EcoCard>
         )}
 
-        {/* Daily Progress */}
+        {/* Multi-city Dashboard */}
         <EcoCard>
           <EcoCardHeader>
-            <EcoCardTitle>Today's Progress</EcoCardTitle>
+            <EcoCardTitle>City Metrics & Projections</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Scans Completed</span>
-                <span className="font-semibold">3/5</span>
+          <EcoCardContent className="space-y-4">
+            {Object.entries(cityMetrics).map(([city, metric]) => (
+              <div key={city} className="border-b border-muted py-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">{city}</span>
+                  <span>PLY: {metric.forecast?.ply || 0}, CRT: {metric.forecast?.crt || 0}</span>
+                </div>
+                <Progress value={Math.min((metric.polyEarned / (metric.forecast?.ply || 1)) * 100, 100)} />
               </div>
-              <Progress value={60} className="h-2" />
-              
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">2 more scans to complete daily challenge</p>
-                <p className="text-xs text-eco-primary font-medium">+50 PLY bonus</p>
-              </div>
-            </div>
+            ))}
           </EcoCardContent>
         </EcoCard>
 
-        {/* Tips */}
+        {/* NFT Badges */}
         <EcoCard>
           <EcoCardHeader>
-            <EcoCardTitle className="flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-eco-warning" />
-              <span>Scanning Tips</span>
-            </EcoCardTitle>
+            <EcoCardTitle>NFT Badges</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Ensure good lighting for better detection</li>
-              <li>• Center plastic item in frame</li>
-              <li>• Clean items scan with higher confidence</li>
-              <li>• Multiple angles increase accuracy</li>
-            </ul>
+          <EcoCardContent className="flex flex-wrap gap-2">
+            {badges.map(badge => (
+              <Badge key={badge.id} variant={badge.unlocked ? 'default' : 'secondary'}>
+                {badge.name} ({badge.rarity})
+              </Badge>
+            ))}
+          </EcoCardContent>
+        </EcoCard>
+
+        {/* Projects */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Active Projects</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="space-y-2">
+            {projects.map(p => (
+              <div key={p.id} className="flex justify-between items-center">
+                <span>{p.title}</span>
+                <EcoButton size="sm" onClick={() => contributeToProject(p.id, 10, 'PLY')}>
+                  +10 PLY
+                </EcoButton>
+              </div>
+            ))}
+          </EcoCardContent>
+        </EcoCard>
+
+        {/* Marketplace */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Marketplace Items</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="space-y-2">
+            {marketplaceItems.map(item => (
+              <div key={item.id} className="flex justify-between items-center">
+                <span>{item.title}</span>
+                <span className="font-semibold">{item.price} {item.currency}</span>
+              </div>
+            ))}
           </EcoCardContent>
         </EcoCard>
       </main>
