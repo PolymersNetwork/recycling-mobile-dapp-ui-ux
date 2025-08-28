@@ -1,264 +1,145 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
-import { EcoButton } from "@/components/ui/eco-button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Zap, Target, TrendingUp, Camera, Leaf, Globe, Award, Star, ArrowRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Leaf, ArrowRight, Star } from "lucide-react";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
+import { programs } from "@metaplex/js"; // for NFT metadata
+import { TOKEN_PROGRAM_ID } from "@/constants";
+
+interface User {
+  name: string;
+  level: number;
+  streakDays: number;
+  totalTokens: number;
+  todayTokens: number;
+  weeklyGoal: number;
+  weeklyProgress: number;
+  wallet: string;
+}
+
+interface NFTBadge {
+  name: string;
+  image: string;
+}
+
+interface SPLTokenBalance {
+  symbol: string;
+  amount: number;
+}
 
 export function Home() {
-  const [user] = useState({
-    name: "Alex",
-    level: 12,
-    streakDays: 7,
-    totalTokens: 2840,
-    todayTokens: 125,
-    weeklyGoal: 500,
-    weeklyProgress: 275,
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [badges, setBadges] = useState<NFTBadge[]>([]);
+  const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
+
+  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com");
+
+  useEffect(() => {
+    async function fetchUserData() {
+      // Mock fetch user info from backend
+      const wallet = "YOUR_USER_WALLET_PUBLIC_KEY"; // dynamically fetch from auth
+      setUser({
+        name: "Alex",
+        level: 12,
+        streakDays: 7,
+        totalTokens: 2840,
+        todayTokens: 125,
+        weeklyGoal: 500,
+        weeklyProgress: 275,
+        wallet,
+      });
+
+      // Fetch SPL tokens
+      const tokens: SPLTokenBalance[] = [];
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        new PublicKey(wallet),
+        { programId: TOKEN_PROGRAM_ID }
+      );
+      tokenAccounts.value.forEach((acc) => {
+        const info = acc.account.data.parsed.info;
+        const amount = parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals;
+        tokens.push({ symbol: info.mint, amount });
+      });
+      setSplBalances(tokens);
+
+      // Fetch NFTs via Metaplex
+      const metadataProgram = programs.metadata.MetadataProgram;
+      const nfts: NFTBadge[] = [];
+      const nftAccounts = await metadataProgram.getProgramAccounts(connection, {
+        filters: [
+          { dataSize: 679 }, // adjust based on your NFT standard
+          { memcmp: { offset: 33, bytes: wallet } },
+        ],
+      });
+      for (let acc of nftAccounts) {
+        const metadata = await programs.metadata.Metadata.load(connection, acc.pubkey);
+        nfts.push({ name: metadata.data.data.name, image: metadata.data.data.uri });
+      }
+      setBadges(nfts);
+    }
+
+    fetchUserData();
+  }, []);
+
+  if (!user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20">
-      <MobileHeader title="Good morning, Alex!" notificationCount={3} />
-      
+      <MobileHeader title={`Good morning, ${user.name}!`} notificationCount={3} />
+
       <main className="px-4 pt-2 pb-6 space-y-5">
-        {/* Hero Stats Card */}
-        <EcoCard variant="eco" className="shadow-glow animate-fade-in">
-          <EcoCardContent className="p-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="p-4 bg-white/20 rounded-full animate-bounce-subtle">
-                  <Leaf className="w-8 h-8 text-white" />
-                </div>
+        {/* Hero Stats */}
+        <EcoCard variant="eco">
+          <EcoCardContent className="p-6 text-center">
+            <Leaf className="w-8 h-8 mx-auto mb-2 text-white" />
+            <h2 className="text-2xl font-bold text-white mb-1">Level {user.level} Eco Warrior</h2>
+            <p className="text-white/80 text-sm mb-4">Making the planet greener, one scan at a time</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-2xl font-bold text-white">{user.totalTokens.toLocaleString()}</div>
+                <div className="text-white/70 text-xs uppercase tracking-wide">Total POLY</div>
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white mb-1">Level {user.level} Eco Warrior</h2>
-                <p className="text-white/80 text-sm">Making the planet greener, one scan at a time</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{user.totalTokens.toLocaleString()}</div>
-                  <div className="text-white/70 text-xs uppercase tracking-wide">Total POLY</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{user.streakDays}</div>
-                  <div className="text-white/70 text-xs uppercase tracking-wide">Day Streak</div>
-                </div>
+                <div className="text-2xl font-bold text-white">{user.streakDays}</div>
+                <div className="text-white/70 text-xs uppercase tracking-wide">Day Streak</div>
               </div>
             </div>
           </EcoCardContent>
         </EcoCard>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-3 gap-3 animate-slide-up">
-          <EcoCard variant="elevated" className="shadow-card">
-            <EcoCardContent className="p-4 text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-eco-success/10 rounded-full flex items-center justify-center">
-                <Coins className="w-5 h-5 text-eco-success" />
-              </div>
-              <div className="text-lg font-bold text-eco-success">+{user.todayTokens}</div>
-              <div className="text-xs text-muted-foreground">Today</div>
-            </EcoCardContent>
-          </EcoCard>
-          
-          <EcoCard variant="elevated" className="shadow-card">
-            <EcoCardContent className="p-4 text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-eco-warning/10 rounded-full flex items-center justify-center">
-                <Star className="w-5 h-5 text-eco-warning" />
-              </div>
-              <div className="text-lg font-bold text-eco-warning">{user.level}</div>
-              <div className="text-xs text-muted-foreground">Level</div>
-            </EcoCardContent>
-          </EcoCard>
-          
-          <EcoCard variant="elevated" className="shadow-card">
-            <EcoCardContent className="p-4 text-center">
-              <div className="w-10 h-10 mx-auto mb-2 bg-eco-primary/10 rounded-full flex items-center justify-center">
-                <Globe className="w-5 h-5 text-eco-primary" />
-              </div>
-              <div className="text-lg font-bold text-eco-primary">2.4kg</div>
-              <div className="text-xs text-muted-foreground">CO₂ Saved</div>
-            </EcoCardContent>
-          </EcoCard>
-        </div>
-
-        {/* Weekly Progress */}
-        <EcoCard className="shadow-card">
-          <EcoCardHeader className="pb-3">
-            <EcoCardTitle className="flex items-center justify-between">
-              <span>Weekly Goal</span>
-              <Badge variant="secondary" className="bg-eco-success/10 text-eco-success border-eco-success/20">
-                {Math.round((user.weeklyProgress / user.weeklyGoal) * 100)}%
+        {/* SPL Token Balances */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>SPL Token Balances</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="flex flex-wrap gap-2">
+            {splBalances.map((t) => (
+              <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
+                {t.symbol}: {t.amount.toFixed(2)}
               </Badge>
-            </EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-semibold">{user.weeklyProgress}/{user.weeklyGoal} POLY</span>
-                </div>
-                <Progress value={(user.weeklyProgress / user.weeklyGoal) * 100} className="h-3" />
-              </div>
-              
-              <div className="bg-eco-success/5 rounded-lg p-3 border border-eco-success/10">
-                <div className="flex items-center space-x-2">
-                  <Award className="w-4 h-4 text-eco-success" />
-                  <span className="text-sm font-medium text-eco-success">
-                    {user.weeklyGoal - user.weeklyProgress} POLY to unlock weekly bonus!
-                  </span>
-                </div>
-              </div>
-            </div>
+            ))}
           </EcoCardContent>
         </EcoCard>
 
-        {/* Quick Actions */}
-        <EcoCard className="shadow-card">
-          <EcoCardHeader className="pb-3">
-            <EcoCardTitle>Quick Actions</EcoCardTitle>
+        {/* NFT Badge Collection */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>NFT Badge Collection</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <EcoButton variant="eco" className="h-24 flex-col space-y-2 group relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                <Camera className="w-7 h-7" />
-                <div className="text-center">
-                  <span className="text-sm font-medium">Scan Plastic</span>
-                  <div className="text-xs opacity-80">Earn POLY tokens</div>
+          <EcoCardContent className="flex flex-wrap gap-4">
+            {badges.length > 0 ? (
+              badges.map((badge, idx) => (
+                <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden">
+                  <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
+                  <span className="text-xs truncate text-center mt-1">{badge.name}</span>
                 </div>
-              </EcoButton>
-              
-              <EcoButton variant="eco-outline" className="h-24 flex-col space-y-2 group">
-                <Target className="w-7 h-7" />
-                <div className="text-center">
-                  <span className="text-sm font-medium">Projects</span>
-                  <div className="text-xs opacity-70">Support eco causes</div>
-                </div>
-              </EcoButton>
-            </div>
-          </EcoCardContent>
-        </EcoCard>
-
-        {/* Daily Challenges */}
-        <EcoCard className="shadow-card">
-          <EcoCardHeader className="pb-3">
-            <EcoCardTitle className="flex items-center justify-between">
-              <span>Daily Challenges</span>
-              <Badge variant="secondary" className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
-                2 of 3 complete
-              </Badge>
-            </EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent>
-            <div className="space-y-3">
-              <div className="group p-4 bg-gradient-to-r from-eco-success/10 to-eco-success/5 rounded-xl border border-eco-success/20 hover:border-eco-success/30 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-eco-success/20 rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-eco-success rounded-full"></div>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Scan 3 plastic items</span>
-                      <div className="text-xs text-muted-foreground">3/3 complete ✓</div>
-                    </div>
-                  </div>
-                  <Badge className="bg-eco-success text-white">+50 POLY</Badge>
-                </div>
-              </div>
-              
-              <div className="group p-4 bg-gradient-to-r from-eco-success/10 to-eco-success/5 rounded-xl border border-eco-success/20 hover:border-eco-success/30 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-eco-success/20 rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-eco-success rounded-full"></div>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Share your impact</span>
-                      <div className="text-xs text-muted-foreground">1/1 complete ✓</div>
-                    </div>
-                  </div>
-                  <Badge className="bg-eco-success text-white">+25 POLY</Badge>
-                </div>
-              </div>
-              
-              <div className="group p-4 bg-muted/30 rounded-xl border border-muted hover:border-muted-foreground/20 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-muted-foreground/20 rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-muted-foreground/50 rounded-full"></div>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Contribute to a project</span>
-                      <div className="text-xs text-muted-foreground">0/1 remaining</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Badge variant="outline">+100 POLY</Badge>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </EcoCardContent>
-        </EcoCard>
-
-        {/* Recent Activity */}
-        <EcoCard className="shadow-card">
-          <EcoCardHeader className="pb-3">
-            <EcoCardTitle className="flex items-center justify-between">
-              <span>Recent Activity</span>
-              <ArrowRight className="w-4 h-4 text-muted-foreground" />
-            </EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/30 transition-colors">
-                <div className="w-10 h-10 bg-eco-success/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Leaf className="w-5 h-5 text-eco-success" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Plastic bottle scanned</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span>2 hours ago</span>
-                    <Badge variant="outline" className="text-eco-success border-eco-success/30 bg-eco-success/5">
-                      +25 POLY
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/30 transition-colors">
-                <div className="w-10 h-10 bg-eco-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Globe className="w-5 h-5 text-eco-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Ocean Cleanup donation</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span>1 day ago</span>
-                    <Badge variant="outline" className="text-eco-primary border-eco-primary/30 bg-eco-primary/5">
-                      -100 POLY
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/30 transition-colors">
-                <div className="w-10 h-10 bg-eco-warning/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Star className="w-5 h-5 text-eco-warning" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">Level up achievement</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span>2 days ago</span>
-                    <Badge variant="outline" className="text-eco-warning border-eco-warning/30 bg-eco-warning/5">
-                      Level 12
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
+              ))
+            ) : (
+              <span className="text-sm text-muted-foreground">No badges earned yet</span>
+            )}
           </EcoCardContent>
         </EcoCard>
       </main>
