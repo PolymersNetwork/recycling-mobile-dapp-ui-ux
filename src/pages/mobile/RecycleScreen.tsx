@@ -1,22 +1,20 @@
-"use client";
-
-import React, { useRef, useState, useEffect } from "react";
-import { View, ScrollView, Text, StyleSheet } from "react-native";
+import React, { useRef, useEffect, useState } from "react";
+import { View, ScrollView, Text, Button } from "react-native";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
-import { EcoButton } from "@/components/ui/eco-button";
-import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 import { useRecycling } from "@/contexts/RecyclingContext";
-import { Zap, Leaf, CheckCircle } from "lucide-react";
+import { EcoButton } from "@/components/ui/eco-button";
 
 export function RecycleScreen() {
-  const { plyBalance, crtBalance, units, logRecycleUnit, badges } = useRecycling();
   const particleRef = useRef<ParticleRef>(null);
+  const { plyBalance, crtBalance, units, logRecycleUnit, badges } = useRecycling();
   const [animatedPly, setAnimatedPly] = useState(plyBalance);
   const [animatedCrt, setAnimatedCrt] = useState(crtBalance);
   const [animatedUnits, setAnimatedUnits] = useState(units);
 
+  // Animate counters & trigger particle bursts
   useEffect(() => {
     if (plyBalance > animatedPly) {
       setAnimatedPly(plyBalance);
@@ -38,59 +36,40 @@ export function RecycleScreen() {
     }
   }, [units]);
 
-  const handleRecycle = async () => {
-    // Simulate scanning plastic + minting rewards
-    const reward = await logRecycleUnit({ city: "Local", lat: 0, lng: 0 });
-    particleRef.current?.burstCoins({ count: 25, color: "#FFD700" });
-    particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" });
+  const handleRecycle = () => {
+    logRecycleUnit({ city: "Expo City", lat: 0, lng: 0 });
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#111" }}>
+    <View className="flex-1 bg-background relative">
       <ParticleEngine ref={particleRef} />
+      <MobileHeader title="Recycle" />
 
-      <MobileHeader title="Recycle Plastic" />
-
-      <ScrollView style={{ padding: 16 }} contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Wallet & Tokens */}
+      <ScrollView className="p-4 space-y-6">
         <EcoCard>
           <EcoCardHeader>
-            <EcoCardTitle>Wallet Balances</EcoCardTitle>
+            <EcoCardTitle>Your Stats</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent style={{ flexDirection: "row", justifyContent: "space-around" }}>
-            <View style={{ alignItems: "center" }}>
-              <Leaf color="#FFD700" size={24} />
-              <AnimatedCounter value={animatedPly} />
-              <Text style={{ color: "#fff" }}>PLY</Text>
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Zap color="#00FFAA" size={24} />
-              <AnimatedCounter value={animatedCrt} />
-              <Text style={{ color: "#fff" }}>CRT</Text>
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <CheckCircle color="#FFAA00" size={24} />
-              <AnimatedCounter value={animatedUnits} />
-              <Text style={{ color: "#fff" }}>Scans</Text>
-            </View>
+          <EcoCardContent className="space-y-2">
+            <Text>PLY: <AnimatedCounter value={animatedPly} /></Text>
+            <Text>CRT: <AnimatedCounter value={animatedCrt} /></Text>
+            <Text>Units Scanned: <AnimatedCounter value={animatedUnits} /></Text>
           </EcoCardContent>
         </EcoCard>
 
-        {/* Recycle Action */}
-        <EcoButton onPress={handleRecycle} style={{ marginTop: 16 }}>
-          Recycle Plastic & Earn PLY
+        <EcoButton onPress={handleRecycle}>
+          Recycle Plastic
         </EcoButton>
 
-        {/* Badges */}
-        <EcoCard style={{ marginTop: 16 }}>
+        <EcoCard>
           <EcoCardHeader>
-            <EcoCardTitle>Recent Badges</EcoCardTitle>
+            <EcoCardTitle>Badges Earned</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {badges.map((b, idx) => (
-              <EcoCard key={idx} style={{ width: 60, height: 60, justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ fontSize: 24 }}>{b.emoji || "🏆"}</Text>
-              </EcoCard>
+          <EcoCardContent className="flex-row flex-wrap">
+            {badges.map((b) => (
+              <View key={b.id} className="bg-eco-primary/10 m-1 p-2 rounded">
+                <Text>{b.name}</Text>
+              </View>
             ))}
           </EcoCardContent>
         </EcoCard>
