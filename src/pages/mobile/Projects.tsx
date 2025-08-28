@@ -32,54 +32,14 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
   const [filter, setFilter] = useState<string>("all");
   const [badges, setBadges] = useState<NFTBadge[]>([]);
   const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "1",
-      title: "Pacific Ocean Cleanup",
-      description: "Removing plastic and waste from the Pacific Ocean to protect marine life.",
-      imageUrl: "/api/placeholder/400/200",
-      targetAmount: 100000,
-      currentAmount: 75630,
-      contributors: 324,
-      category: "cleanup",
-      location: "Pacific Ocean",
-      endDate: "2025-01-31",
-      createdBy: "Ocean Foundation",
-      impact: { co2Reduction: 2100, treesPlanted: 0, plasticRemoved: 50000 }
-    },
-    {
-      id: "2",
-      title: "Solar Schools Africa",
-      description: "Providing solar energy to schools in rural Africa for sustainable education.",
-      imageUrl: "/api/placeholder/400/200",
-      targetAmount: 80000,
-      currentAmount: 43500,
-      contributors: 142,
-      category: "renewable",
-      location: "Kenya",
-      endDate: "2024-12-15",
-      createdBy: "Green Education",
-      impact: { co2Reduction: 1800, treesPlanted: 400, plasticRemoved: 0 }
-    },
-    {
-      id: "3",
-      title: "Urban Tree Planting",
-      description: "Planting trees in urban areas to reduce CO₂ and improve air quality.",
-      imageUrl: "/api/placeholder/400/200",
-      targetAmount: 60000,
-      currentAmount: 31250,
-      contributors: 198,
-      category: "conservation",
-      location: "New York, USA",
-      endDate: "2024-11-30",
-      createdBy: "Green City Org",
-      impact: { co2Reduction: 900, treesPlanted: 250, plasticRemoved: 0 }
-    }
-  ]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
   const { toast } = useToast();
 
-  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
+  const connection = new Connection(
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+    "confirmed"
+  );
 
   const metaplex = Metaplex.make(connection)
     .use(keypairIdentity(walletKeypair))
@@ -87,19 +47,24 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
 
   const wallet = walletKeypair.publicKey;
 
+  // Fetch SPL tokens & NFT badges
   const fetchOnChainData = async () => {
     try {
-      // Fetch SPL tokens
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(wallet, { programId: TOKEN_PROGRAM_ID });
       const tokens: SPLTokenBalance[] = tokenAccounts.value.map(acc => {
         const info = acc.account.data.parsed.info;
-        return { symbol: info.mint, amount: parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals };
+        return {
+          symbol: info.mint,
+          amount: parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals
+        };
       });
       setSplBalances(tokens);
 
-      // Fetch NFT badges
       const nftAccounts = await metaplex.nfts().findAllByOwner({ owner: wallet });
-      const nfts: NFTBadge[] = nftAccounts.map(nft => ({ name: nft.name, image: nft.metadataUri }));
+      const nfts: NFTBadge[] = nftAccounts.map(nft => ({
+        name: nft.name,
+        image: nft.metadataUri
+      }));
       setBadges(nfts);
     } catch (err) {
       console.error("Failed to fetch on-chain data:", err);
@@ -108,25 +73,70 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
 
   useEffect(() => {
     fetchOnChainData();
+    // Mock projects
+    setProjects([
+      {
+        id: "1",
+        title: "Pacific Ocean Cleanup",
+        description: "Removing plastic and waste from the Pacific Ocean to protect marine life.",
+        imageUrl: "/api/placeholder/400/200",
+        targetAmount: 100000,
+        currentAmount: 75630,
+        contributors: 324,
+        category: "cleanup",
+        location: "Pacific Ocean",
+        endDate: "2025-01-31",
+        createdBy: "Ocean Foundation",
+        impact: { co2Reduction: 2100, treesPlanted: 0, plasticRemoved: 50000 }
+      },
+      {
+        id: "2",
+        title: "Solar Schools Africa",
+        description: "Providing solar energy to schools in rural Africa for sustainable education.",
+        imageUrl: "/api/placeholder/400/200",
+        targetAmount: 80000,
+        currentAmount: 43500,
+        contributors: 142,
+        category: "renewable",
+        location: "Kenya",
+        endDate: "2024-12-15",
+        createdBy: "Green Education",
+        impact: { co2Reduction: 1800, treesPlanted: 400, plasticRemoved: 0 }
+      },
+      {
+        id: "3",
+        title: "Urban Tree Planting",
+        description: "Planting trees in urban areas to reduce CO₂ and improve air quality.",
+        imageUrl: "/api/placeholder/400/200",
+        targetAmount: 60000,
+        currentAmount: 31250,
+        contributors: 198,
+        category: "conservation",
+        location: "New York, USA",
+        endDate: "2024-11-30",
+        createdBy: "Green City Org",
+        impact: { co2Reduction: 900, treesPlanted: 250, plasticRemoved: 0 }
+      }
+    ]);
   }, []);
 
   const handleContribute = async (project: Project) => {
     try {
       toast({ title: "Contribution in progress...", description: "Minting rewards on-chain." });
 
-      // 1️⃣ Update local project state
+      // Update project locally
       setProjects(prev =>
         prev.map(p => p.id === project.id ? { ...p, currentAmount: p.currentAmount + 100, contributors: p.contributors + 1 } : p)
       );
 
-      // 2️⃣ Mint SPL token reward (example: 100 PLY per contribution)
+      // Mint SPL token reward (100 PLY per contribution)
       const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
       await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, 100);
 
-      // 3️⃣ Mint NFT badge using Candy Machine
+      // Mint NFT badge via Candy Machine
       await metaplex.candyMachines().mint({ candyMachine: candyMachineId, payer: walletKeypair });
 
-      // 4️⃣ Refresh on-chain balances and badges
+      // Refresh balances & badges
       await fetchOnChainData();
 
       toast({ title: "Contribution Successful!", description: `100 PLY minted + NFT badge issued!` });
@@ -160,7 +170,13 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
         {/* Filter Tabs */}
         <div className="flex space-x-2 overflow-x-auto pb-2">
           {["all", "cleanup", "renewable", "conservation", "education"].map(category => (
-            <EcoButton key={category} variant={filter === category ? "eco" : "eco-outline"} size="sm" onClick={() => setFilter(category)} className="capitalize whitespace-nowrap">
+            <EcoButton
+              key={category}
+              variant={filter === category ? "eco" : "eco-outline"}
+              size="sm"
+              onClick={() => setFilter(category)}
+              className="capitalize whitespace-nowrap"
+            >
               {category}
             </EcoButton>
           ))}
@@ -173,7 +189,9 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
           </EcoCardHeader>
           <EcoCardContent className="flex flex-wrap gap-2">
             {splBalances.length ? splBalances.map(t => (
-              <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">{t.symbol}: {t.amount.toFixed(2)}</Badge>
+              <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
+                {t.symbol}: {t.amount.toFixed(2)}
+              </Badge>
             )) : <span className="text-sm text-muted-foreground">No SPL tokens yet</span>}
           </EcoCardContent>
         </EcoCard>
