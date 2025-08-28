@@ -8,14 +8,14 @@ import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/componen
 import { EcoButton } from "@/components/ui/eco-button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, Plus, RefreshCw, Eye, EyeOff, Heart, Users, Clock, MapPin } from "lucide-react";
+import { Wallet, Plus, RefreshCw, Eye, EyeOff, Heart } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { actions } from "@metaplex/js"; // Metaplex JS SDK
+import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
 import type { TokenBalance, NFTBadge, Project } from "@/types";
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
-const PLY_MINT = new PublicKey("PLYKdaCUgxTUw6rSjWbgSN97Qtecb6Fy6SazWf1tvAC");
-const CANDY_MACHINE_ID = new PublicKey("YOUR_CANDY_MACHINE_ID_HERE"); // Replace with your Candy Machine ID
+const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
+const CANDY_MACHINE_ID = new PublicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID!);
 
 const mockProjects: Project[] = [
   {
@@ -57,13 +57,16 @@ export function Portfolio() {
   const [projects, setProjects] = useState<Project[]>(mockProjects);
 
   const connection = new Connection(RPC_URL, "confirmed");
+  const metaplex = Metaplex.make(connection)
+    .use(keypairIdentity({ publicKey, signTransaction }))
+    .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }));
 
   // Fetch SPL token balances
   const fetchBalances = async () => {
     if (!publicKey) return;
     try {
-      const plyAccount = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
-      const plyBalance = Number(plyAccount.amount);
+      const ata = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
+      const plyBalance = Number(ata.amount);
       const solBalance = await connection.getBalance(publicKey) / 1e9;
       setBalances([
         { symbol: "PLY", amount: plyBalance, usdValue: 0, change24h: 0 },
@@ -74,13 +77,21 @@ export function Portfolio() {
     }
   };
 
-  // Fetch NFT badges (on-chain Candy Machine)
+  // Fetch NFT badges from Candy Machine collection
   const fetchNFTBadges = async () => {
     if (!publicKey) return;
-    // For simplicity, mock; in production, query Metaplex for user's NFTs in collection
-    setNftBadges([
-      { name: "Eco Warrior", image: "/badges/eco-warrior.png", mintedAt: Date.now() - 86400000 },
-    ]);
+    try {
+      const nfts = await metaplex.nfts().findAllByOwner({ owner: publicKey });
+      setNftBadges(
+        nfts.map((nft) => ({
+          name: nft.name,
+          image: nft.metadataUri,
+          mintedAt: nft.mintTime?.getTime() || Date.now(),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to fetch NFTs:", err);
+    }
   };
 
   useEffect(() => {
@@ -97,7 +108,6 @@ export function Portfolio() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // Mint SPL PLY reward
   const mintPLYReward = async (amount: number) => {
     if (!publicKey || !signTransaction) return;
     try {
@@ -120,21 +130,17 @@ export function Portfolio() {
     }
   };
 
-  // Mint NFT badge using Metaplex Candy Machine
   const mintNFTBadge = async () => {
     if (!publicKey) return;
     try {
-      const { mintOneToken } = actions;
-      await mintOneToken({ connection, wallet: { publicKey, signTransaction }, candyMachine: CANDY_MACHINE_ID });
+      await metaplex.candyMachines().mint({ candyMachine: CANDY_MACHINE_ID, payer: { publicKey, signTransaction } });
       await fetchNFTBadges();
     } catch (err) {
       console.error("Failed to mint NFT badge:", err);
     }
   };
 
-  // Handle contribution: updates project, mints SPL + NFT
   const handleContribute = async (projectId: string) => {
-    // Update local project
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
@@ -142,23 +148,11 @@ export function Portfolio() {
           : p
       )
     );
-
-    // Mint SPL reward + NFT badge
     await mintPLYReward(100);
     await mintNFTBadge();
   };
 
   const getTokenIcon = (symbol: string) => `https://cryptoicons.cc/64/color/${symbol.toLowerCase()}.png`;
-
-  const getCategoryColor = (category: Project['category']) => {
-    const colors = {
-      cleanup: "bg-blue-500/10 text-blue-700 border-blue-200",
-      renewable: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
-      conservation: "bg-green-500/10 text-green-700 border-green-200",
-      education: "bg-purple-500/10 text-purple-700 border-purple-200",
-    };
-    return colors[category] || colors.cleanup;
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
@@ -167,21 +161,19 @@ export function Portfolio() {
       <main className="p-4 space-y-6">
         {/* Total Balance */}
         <EcoCard variant="eco">
-          <EcoCardHeader>
-            <div className="flex items-center justify-between">
-              <EcoCardTitle className="text-white">Total Portfolio Value</EcoCardTitle>
-              <div className="flex items-center space-x-2">
-                <EcoButton variant="eco-outline" size="icon" onClick={() => setBalanceVisible(!balanceVisible)}>
-                  {balanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-                </EcoButton>
-                <EcoButton variant="eco-outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
-                  <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-                </EcoButton>
-              </div>
+          <EcoCardHeader className="flex justify-between items-center">
+            <EcoCardTitle className="text-white">Total Portfolio Value</EcoCardTitle>
+            <div className="flex space-x-2">
+              <EcoButton variant="eco-outline" size="icon" onClick={() => setBalanceVisible(!balanceVisible)}>
+                {balanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+              </EcoButton>
+              <EcoButton variant="eco-outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
+                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              </EcoButton>
             </div>
           </EcoCardHeader>
           <EcoCardContent>
-            <div className="space-y-2 text-white font-bold text-3xl">
+            <div className="text-white font-bold text-3xl">
               {balanceVisible ? `$${balances.reduce((sum, b) => sum + b.usdValue, 0).toLocaleString()}` : "••••••"}
             </div>
           </EcoCardContent>
@@ -191,23 +183,15 @@ export function Portfolio() {
         <div className="space-y-4">
           {projects.map((project) => (
             <EcoCard key={project.id} variant="elevated">
-              <div className="relative">
-                <div className="aspect-[2/1] bg-gradient-to-br from-eco-primary-light/20 to-eco-primary/10 rounded-t-2xl flex items-center justify-center">
-                  <p className="text-center text-xs text-muted-foreground">Project Image</p>
-                </div>
-                <Badge className={`absolute top-3 right-3 ${getCategoryColor(project.category)}`}>
-                  {project.category}
-                </Badge>
-              </div>
-
               <EcoCardContent>
                 <EcoCardHeader>
                   <EcoCardTitle>{project.title}</EcoCardTitle>
                   <p>{project.description}</p>
                 </EcoCardHeader>
-
                 <div className="mt-4 flex justify-between items-center">
-                  <p>{project.currentAmount} / {project.targetAmount}</p>
+                  <p>
+                    {project.currentAmount} / {project.targetAmount}
+                  </p>
                   <EcoButton variant="eco" onClick={() => handleContribute(project.id)}>
                     <Heart className="w-4 h-4" /> Contribute
                   </EcoButton>
@@ -231,9 +215,7 @@ export function Portfolio() {
                   <img src={getTokenIcon(b.symbol)} className="w-10 h-10 rounded-full" alt={b.symbol} />
                   <div>
                     <p className="font-semibold">{b.symbol}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {balanceVisible ? b.amount.toLocaleString() : "••••••"}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{balanceVisible ? b.amount.toLocaleString() : "••••••"}</p>
                   </div>
                 </EcoCardContent>
               </EcoCard>
