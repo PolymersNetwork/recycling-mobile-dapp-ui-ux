@@ -1,7 +1,7 @@
 import { BadgeStats, Unit } from '../types';
 
 /**
- * Calculate projected POLY (PLY) and CRT rewards for a batch of units
+ * Calculate projected PLY and CRT rewards for a batch of units
  * based on historical trends and multipliers.
  */
 export const calculateRewardForecast = (
