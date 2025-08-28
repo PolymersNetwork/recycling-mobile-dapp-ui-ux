@@ -46,69 +46,59 @@ export function useProjects() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  /** Fetch projects (mock API call) */
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       setProjects(mockProjects);
     } catch (err) {
+      console.error(err);
       toast({ title: 'Failed to load projects', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  /** Contribute tokens to a project */
   const contributeToProject = async (projectId: string, amount: number, currency: 'PLY' | 'USDC' | 'SOL') => {
     setLoading(true);
     try {
-      // Simulate blockchain/web3 contribution
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate blockchain interaction
 
       setProjects(prev =>
         prev.map(project =>
           project.id === projectId
-            ? {
-                ...project,
-                currentAmount: project.currentAmount + amount,
-                contributors: project.contributors + 1
-              }
+            ? { ...project, currentAmount: project.currentAmount + amount, contributors: project.contributors + 1 }
             : project
         )
       );
 
+      const project = projects.find(p => p.id === projectId);
       toast({
         title: 'Contribution Successful',
-        description: `You contributed ${amount} ${currency} to ${projects.find(p => p.id === projectId)?.title}`,
+        description: `You contributed ${amount} ${currency} to ${project?.title}`,
       });
     } catch (err) {
+      console.error(err);
       toast({ title: 'Contribution Failed', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  /** Create a new project */
   const createProject = async (projectData: Omit<Project, 'id' | 'currentAmount' | 'contributors'>) => {
     setLoading(true);
     try {
-      const newProject: Project = {
-        ...projectData,
-        id: Date.now().toString(),
-        currentAmount: 0,
-        contributors: 0
-      };
-
-      // Simulate API call / blockchain submission
+      const newProject: Project = { ...projectData, id: Date.now().toString(), currentAmount: 0, contributors: 0 };
       await new Promise(resolve => setTimeout(resolve, 2000));
+
       setProjects(prev => [newProject, ...prev]);
-
-      toast({
-        title: 'Project Created',
-        description: `Project "${newProject.title}" has been successfully added.`,
-      });
-
+      toast({ title: 'Project Created', description: `Project "${newProject.title}" has been successfully added.` });
       return newProject;
     } catch (err) {
+      console.error(err);
       toast({ title: 'Project Creation Failed', variant: 'destructive' });
       throw err;
     } finally {
@@ -120,11 +110,5 @@ export function useProjects() {
     fetchProjects();
   }, []);
 
-  return {
-    projects,
-    loading,
-    fetchProjects,
-    contributeToProject,
-    createProject
-  };
+  return { projects, loading, fetchProjects, contributeToProject, createProject };
 }
