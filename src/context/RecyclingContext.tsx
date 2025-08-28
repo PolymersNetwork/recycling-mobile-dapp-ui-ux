@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { generateGeoHash, groupUnitsByCity, generateUUID } from '../lib/utils';
-import { fetchCityMetrics, fetchLeaderboard, logRecycleBatch, fetchBadgeStats } from '../lib/api';
+import { generateUUID, groupUnitsByCity } from '../lib/utils';
+import {
+  fetchCityMetrics,
+  fetchLeaderboard,
+  fetchBadgeStats,
+  fetchHistoricalTrends,
+  logRecycleBatch,
+} from '../lib/api';
 import { sendRecycleTransaction, verifyWithOracles, releaseEscrow } from '../lib/solana';
-import { calculateRewardForecast, calculateBadgeRarity } from '../lib/forecast';
+import { calculateBadgeRarity, calculateRewardForecast } from '../lib/forecast';
 
-interface Unit {
+export interface Unit {
   id: string;
   city: string;
   lat: number;
@@ -12,7 +18,7 @@ interface Unit {
   scannedAt: Date;
 }
 
-interface Badge {
+export interface Badge {
   id: string;
   name: string;
   unlocked: boolean;
@@ -20,11 +26,13 @@ interface Badge {
   imageUrl: string;
 }
 
-interface CityMetrics {
+export interface CityMetrics {
+  cityId: string;
   polyEarned: number;
   crtEarned: number;
   batchCount: number;
   leaderboard: any[];
+  historicalTrends?: any[];
 }
 
 interface RecyclingContextProps {
@@ -33,10 +41,13 @@ interface RecyclingContextProps {
   badges: Badge[];
   units: Unit[];
   cityMetrics: Record<string, CityMetrics>;
+  leaderboard: any[];
   logRecycleUnit: (unit: Omit<Unit, 'id' | 'scannedAt'>) => void;
   submitBatch: () => Promise<void>;
   refreshCityMetrics: () => Promise<void>;
   refreshBadges: () => Promise<void>;
+  refreshLeaderboard: () => Promise<void>;
+  fetchCityHistoricalTrends: (cityId: string) => Promise<void>;
 }
 
 const RecyclingContext = createContext<RecyclingContextProps | undefined>(undefined);
@@ -47,6 +58,7 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [cityMetrics, setCityMetrics] = useState<Record<string, CityMetrics>>({});
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   // Add a single scanned unit
   const logRecycleUnit = (unit: Omit<Unit, 'id' | 'scannedAt'>) => {
@@ -58,54 +70,95 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const submitBatch = async () => {
     if (units.length === 0) return;
 
-    // 1. Verify units via Chainlink + Pyth oracles
-    const verificationResults = await verifyWithOracles(units);
+    try {
+      // 1. Verify units via Chainlink + Pyth oracles
+      const verificationResults = await verifyWithOracles(units);
 
-    // 2. Filter verified units
-    const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
+      // 2. Filter verified units
+      const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
 
-    // 3. Send transaction to Solana program
-    await sendRecycleTransaction(verifiedUnits);
+      if (verifiedUnits.length === 0) return;
 
-    // 4. Release any escrow for corporate/NGO donations
-    await releaseEscrow(verifiedUnits);
+      // 3. Send transaction to Solana program
+      await sendRecycleTransaction(verifiedUnits);
 
-    // 5. Log batch in backend
-    await logRecycleBatch(verifiedUnits);
+      // 4. Release escrow for corporate/NGO donations
+      await releaseEscrow(verifiedUnits);
 
-    // 6. Update POLY/CRT balances
-    const polyEarned = verifiedUnits.length; // 1:1 for simplicity
-    const crtEarned = verifiedUnits.length * 0.5;
-    setPlyBalance(prev => prev + polyEarned);
-    setCrtBalance(prev => prev + crtEarned);
+      // 5. Log batch in backend
+      await logRecycleBatch(verifiedUnits);
 
-    // 7. Update city metrics
-    await refreshCityMetrics();
+      // 6. Update POLY/CRT balances
+      const polyEarned = verifiedUnits.length; // 1:1 PLY
+      const crtEarned = verifiedUnits.length * 0.5; // 0.5 CRT
+      setPlyBalance(prev => prev + polyEarned);
+      setCrtBalance(prev => prev + crtEarned);
 
-    // 8. Refresh badge stats
-    await refreshBadges();
+      // 7. Refresh city metrics and leaderboard
+      await refreshCityMetrics();
+      await refreshLeaderboard();
 
-    // 9. Clear units after submission
-    setUnits([]);
+      // 8. Refresh badge stats
+      await refreshBadges();
+
+      // 9. Clear units after submission
+      setUnits([]);
+    } catch (error) {
+      console.error("Batch submission error:", error);
+    }
   };
 
   const refreshCityMetrics = async () => {
-    const metrics = await fetchCityMetrics();
-    setCityMetrics(metrics);
+    try {
+      const metricsArray = await fetchCityMetrics();
+      const metricsRecord: Record<string, CityMetrics> = {};
+      for (const city of metricsArray) {
+        metricsRecord[city.cityId] = { ...city };
+      }
+      setCityMetrics(metricsRecord);
+    } catch (error) {
+      console.error("Failed to fetch city metrics:", error);
+    }
+  };
+
+  const refreshLeaderboard = async () => {
+    try {
+      const data = await fetchLeaderboard();
+      setLeaderboard(data);
+    } catch (error) {
+      console.error("Failed to fetch leaderboard:", error);
+    }
   };
 
   const refreshBadges = async () => {
-    const badgeData = await fetchBadgeStats();
-    const updatedBadges = badgeData.map(badge => ({
-      ...badge,
-      rarity: calculateBadgeRarity(badge),
-    }));
-    setBadges(updatedBadges);
+    try {
+      const badgeData = await fetchBadgeStats();
+      const updatedBadges = badgeData.map(badge => ({
+        ...badge,
+        rarity: calculateBadgeRarity(badge),
+      }));
+      setBadges(updatedBadges);
+    } catch (error) {
+      console.error("Failed to fetch badges:", error);
+    }
   };
 
-  // Load initial data
+  const fetchCityHistoricalTrends = async (cityId: string) => {
+    try {
+      const trends = await fetchHistoricalTrends(cityId);
+      setCityMetrics(prev => ({
+        ...prev,
+        [cityId]: { ...prev[cityId], historicalTrends: trends },
+      }));
+    } catch (error) {
+      console.error(`Failed to fetch historical trends for city ${cityId}:`, error);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
     refreshCityMetrics();
+    refreshLeaderboard();
     refreshBadges();
   }, []);
 
@@ -117,10 +170,13 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
         badges,
         units,
         cityMetrics,
+        leaderboard,
         logRecycleUnit,
         submitBatch,
         refreshCityMetrics,
         refreshBadges,
+        refreshLeaderboard,
+        fetchCityHistoricalTrends,
       }}
     >
       {children}
