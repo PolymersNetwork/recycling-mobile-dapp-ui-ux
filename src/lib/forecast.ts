@@ -1,23 +1,17 @@
-import { CityMetrics, BadgeStats } from '../types';
-
-/**
- * Calculate PLY & CRT reward projections for next period
- */
-export const calculateRewardForecast = (
-  cityMetrics: CityMetrics,
-  dailyGrowthRate = 0.001
-) => {
-  const projectedPLY = cityMetrics.totalPLY * (1 + dailyGrowthRate);
-  const projectedCRT = cityMetrics.totalCRT * (1 + dailyGrowthRate);
-  return { projectedPLY, projectedCRT };
+export const calculateRewardForecast = (cityMetrics: any) => {
+  const forecasts: Record<string, { poly: number; crt: number }> = {};
+  Object.entries(cityMetrics).forEach(([city, metrics]: any) => {
+    // Simple linear projection based on past week
+    const poly = metrics.polyEarned * 1.2; // +20% forecast
+    const crt = metrics.crtEarned * 1.2;
+    forecasts[city] = { poly, crt };
+  });
+  return forecasts;
 };
 
-/**
- * Calculate NFT badge rarity dynamically based on global scans
- */
-export const calculateBadgeRarity = (badgeStats: BadgeStats[], totalScans: number) => {
-  return badgeStats.map((badge) => ({
-    ...badge,
-    rarity: badge.earnedBy / totalScans, // lower = rarer
-  }));
+export const calculateBadgeRarity = (badge: any) => {
+  // Rarity inversely proportional to number of unlocked users
+  const totalUsers = badge.totalUsers || 1000;
+  const unlockedUsers = badge.unlockedUsers || 10;
+  return Math.max(1, Math.min(100, (1 - unlockedUsers / totalUsers) * 100));
 };
