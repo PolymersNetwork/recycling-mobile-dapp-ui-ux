@@ -1,44 +1,50 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+/**
+ * Merge Tailwind CSS class names with clsx + twMerge
+ */
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }
 
 /**
  * Convert latitude/longitude to short geo-hash string
+ * @param lat Latitude
+ * @param lng Longitude
  */
-export const generateGeoHash = (lat: number, lng: number) => {
+export const generateGeoHash = (lat: number, lng: number): string => {
   return `${lat.toFixed(4)},${lng.toFixed(4)}`;
 };
 
 /**
- * Group batch units by city
+ * Group an array of units by city
+ * @param units Array of objects containing `city` property
  */
-export const groupUnitsByCity = (units: any[]) => {
-  const grouped: Record<string, any[]> = {};
-  units.forEach((unit) => {
-    const city = unit.city || 'Unknown';
-    if (!grouped[city]) grouped[city] = [];
-    grouped[city].push(unit);
-  });
-  return grouped;
+export const groupUnitsByCity = <T extends { city?: string }>(units: T[]): Record<string, T[]> => {
+  return units.reduce((acc, unit) => {
+    const city = unit.city ?? "Unknown";
+    if (!acc[city]) acc[city] = [];
+    acc[city].push(unit);
+    return acc;
+  }, {} as Record<string, T[]>);
 };
 
 /**
- * Format number with commas
+ * Format a number with commas for thousands
+ * @param num Number to format
  */
-export const formatNumber = (num: number) => {
+export const formatNumber = (num: number): string => {
   return num.toLocaleString();
 };
 
 /**
- * Generate unique ID for batch or NFT
+ * Generate a UUID v4-like string for batches or NFTs
  */
-export const generateUUID = () => {
+export const generateUUID = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0,
-      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 };
