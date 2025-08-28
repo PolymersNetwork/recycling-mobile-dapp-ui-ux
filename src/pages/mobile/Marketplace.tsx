@@ -1,177 +1,134 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { MobileHeader } from "@/components/mobile/MobileHeader";
-import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
-import { EcoButton } from "@/components/ui/eco-button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { ShoppingCart } from "lucide-react";
-import { useRecycling } from "@/contexts/RecyclingContext";
-import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
-import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
+import React, { useRef, useState } from "react";
+import { View, ScrollView } from "react-native";
+import { MobileHeader } from "../components/mobile/MobileHeader";
+import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "../components/ui/eco-card";
+import { EcoButton } from "../components/ui/eco-button";
+import { Badge } from "../components/ui/badge";
+import { AnimatedCounter } from "../components/ui/AnimatedCounter";
+import { ParticleEngine, triggerParticles } from "../components/ui/ParticleEngine";
+import { useRecycling } from "../contexts/RecyclingContext";
+import { useWallet } from "../contexts/WalletProvider";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
 import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 
-interface DashboardProps {
-  walletKeypair: any;
-  plyMint: PublicKey;
-  candyMachineId: PublicKey;
-}
-
-export function Dashboard({ walletKeypair, plyMint, candyMachineId }: DashboardProps) {
-  const { plyBalance, crtBalance, badges, units, logRecycleUnit, refreshBalances } = useRecycling();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const particleRef = useRef<ParticleRef>(null);
+export function Marketplace() {
+  const { walletKeypair, candyMachineId, plyMint, walletConnected } = useWallet();
+  const { plyBalance, crtBalance, badges, refreshBalances } = useRecycling();
 
   const counterRefs = {
-    ply: useRef<HTMLDivElement>(null),
-    crt: useRef<HTMLDivElement>(null),
+    ply: useRef<View>(null),
+    crt: useRef<View>(null),
   };
 
+  const particleRef = useRef<ParticleEngine>(null);
   const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
-  const wallet = walletKeypair.publicKey;
 
-  const metaplex = Metaplex.make(connection)
-    .use(keypairIdentity(walletKeypair))
-    .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }));
+  const metaplex = walletKeypair
+    ? Metaplex.make(connection)
+        .use(keypairIdentity(walletKeypair))
+        .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }))
+    : null;
 
-  const marketplaceItems = [
+  const items = [
     { id: 1, title: "Carbon Credits", price: 50, currency: "PLY", type: "credit" },
     { id: 2, title: "Eco Water Bottle", price: 25, currency: "CRT", type: "product" },
     { id: 3, title: "Tree Planting", price: 100, currency: "PLY", type: "donation" },
   ];
 
-  // Handle recycle scan contribution
-  const handleRecycleScan = async () => {
-    logRecycleUnit({ city: "Local City", lat: 0, lng: 0 });
-    particleRef.current?.burstCoins({ count: 30, color: "#FFD700" }); // PLY
-    particleRef.current?.burstCoins({ count: 20, color: "#00FFAA" }); // CRT
+  const [purchaseInProgress, setPurchaseInProgress] = useState(false);
+
+  const handlePurchase = async (item: typeof items[0]) => {
+    if (!walletConnected || !walletKeypair || !metaplex) return;
 
     try {
-      setIsProcessing(true);
+      setPurchaseInProgress(true);
 
-      const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
-      await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, 100);
-
-      await metaplex.candyMachines().mint({ candyMachine: candyMachineId, payer: walletKeypair });
-
-      await refreshBalances();
-
-      badges.forEach(b => particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" }));
-    } catch (err) {
-      console.error("Scan contribution failed:", err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Handle marketplace purchase
-  const handlePurchase = async (item: typeof marketplaceItems[0]) => {
-    try {
-      setIsProcessing(true);
-
+      // 1️⃣ Mint SPL token reward
+      const ata = await getOrCreateAssociatedTokenAccount(
+        connection,
+        walletKeypair,
+        plyMint,
+        walletKeypair.publicKey
+      );
       if (item.currency === "PLY") {
-        const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
         await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, item.price);
       }
 
+      // 2️⃣ Mint NFT badge via Candy Machine
       await metaplex.candyMachines().mint({ candyMachine: candyMachineId, payer: walletKeypair });
 
+      // 3️⃣ Refresh balances
       await refreshBalances();
 
+      // 4️⃣ Trigger particle combo
       const ref = item.currency === "PLY" ? counterRefs.ply.current! : counterRefs.crt.current!;
-      particleRef.current?.burstCoins({ count: 25, color: item.currency === "PLY" ? "#FFD700" : "#00FFAA" });
+      triggerParticles(ref, "combo");
     } catch (err) {
       console.error("Purchase failed:", err);
-      alert("Transaction failed. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setPurchaseInProgress(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+    <View className="flex-1 bg-gradient-to-br from-background to-muted">
       <ParticleEngine ref={particleRef} />
-      <MobileHeader title="Eco Dashboard" />
+      <MobileHeader title="Marketplace" />
+      <ScrollView className="p-4 space-y-6">
 
-      <main className="p-4 space-y-6">
-        {/* Animated Counters */}
+        {/* Counters */}
         <EcoCard>
-          <EcoCardContent className="flex justify-around">
-            <div ref={counterRefs.ply} className="text-center">
+          <EcoCardContent className="flex-row justify-around">
+            <View ref={counterRefs.ply} className="items-center">
               <AnimatedCounter value={plyBalance} suffix=" PLY" />
-              <p className="text-xs text-muted-foreground">PLY Balance</p>
-            </div>
-            <div ref={counterRefs.crt} className="text-center">
+              <Badge variant="secondary">PLY Balance</Badge>
+            </View>
+            <View ref={counterRefs.crt} className="items-center">
               <AnimatedCounter value={crtBalance} suffix=" CRT" />
-              <p className="text-xs text-muted-foreground">CRT Balance</p>
-            </div>
-          </EcoCardContent>
-        </EcoCard>
-
-        {/* Scan & Contribute */}
-        <EcoCard>
-          <EcoCardContent>
-            <EcoButton onClick={handleRecycleScan} disabled={isProcessing}>
-              {isProcessing ? "Processing..." : "Scan & Contribute"}
-            </EcoButton>
+              <Badge variant="secondary">CRT Balance</Badge>
+            </View>
           </EcoCardContent>
         </EcoCard>
 
         {/* Marketplace Items */}
-        <div className="grid gap-4">
-          {marketplaceItems.map(item => (
-            <EcoCard key={item.id} variant="elevated">
-              <EcoCardHeader>
-                <EcoCardTitle className="flex justify-between items-center">
-                  {item.title}
-                  <Badge variant="secondary">{item.type}</Badge>
-                </EcoCardTitle>
-              </EcoCardHeader>
-              <EcoCardContent className="flex justify-between items-center">
-                <span className="text-lg font-bold text-eco-primary">{item.price} {item.currency}</span>
-                <EcoButton size="sm" onClick={() => handlePurchase(item)} disabled={isProcessing}>
-                  <ShoppingCart className="w-4 h-4" /> Buy
-                </EcoButton>
-              </EcoCardContent>
-            </EcoCard>
-          ))}
-        </div>
+        {items.map(item => (
+          <EcoCard key={item.id} variant="elevated">
+            <EcoCardHeader>
+              <EcoCardTitle className="flex-row justify-between">
+                {item.title} <Badge variant="secondary">{item.type}</Badge>
+              </EcoCardTitle>
+            </EcoCardHeader>
+            <EcoCardContent className="flex-row justify-between items-center">
+              <AnimatedCounter value={item.price} suffix={` ${item.currency}`} />
+              <EcoButton onPress={() => handlePurchase(item)} disabled={purchaseInProgress}>
+                {purchaseInProgress ? "Processing..." : "Buy"}
+              </EcoButton>
+            </EcoCardContent>
+          </EcoCard>
+        ))}
 
-        {/* NFT Badges */}
+        {/* Badges */}
         <EcoCard>
           <EcoCardHeader>
             <EcoCardTitle>Your NFT Badges</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent className="flex flex-wrap gap-4">
+          <EcoCardContent className="flex flex-wrap gap-2">
             {badges.map(badge => (
               <Badge
                 key={badge.id}
+                id={`badge-${badge.id}`}
                 variant={badge.unlocked ? "default" : "secondary"}
-                className="cursor-pointer transform transition-transform hover:scale-110"
-                onClick={(e) => particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" })}
+                onPress={() => triggerParticles(document.getElementById(`badge-${badge.id}`)!, badge.rarity)}
               >
                 {badge.name}
               </Badge>
             ))}
           </EcoCardContent>
         </EcoCard>
-
-        {/* Level & Streak Progress */}
-        <EcoCard>
-          <EcoCardHeader>
-            <EcoCardTitle>Progress</EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent>
-            <p className="text-sm text-muted-foreground">Level Progress</p>
-            <Progress value={(plyBalance % 100) / 100 * 100} className="h-3 mb-2" />
-            <p className="text-sm text-muted-foreground">Streak Progress</p>
-            <Progress value={(units.length % 7) / 7 * 100} className="h-3" />
-          </EcoCardContent>
-        </EcoCard>
-      </main>
-    </div>
+      </ScrollView>
+    </View>
   );
 }
