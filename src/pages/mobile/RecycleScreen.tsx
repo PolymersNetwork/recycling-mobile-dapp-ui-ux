@@ -1,130 +1,102 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
-import { View, ScrollView, Text, LayoutRectangle } from "react-native";
+import { useState, useEffect, useRef } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
-import { EcoCard, EcoCardHeader, EcoCardTitle, EcoCardContent } from "@/components/ui/eco-card";
+import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
+import { EcoButton } from "@/components/ui/eco-button";
 import { Badge } from "@/components/ui/badge";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useRecycling } from "@/contexts/RecyclingContext";
-import Animated, { withTiming, useSharedValue, useAnimatedStyle, Easing } from "react-native-reanimated";
-import ParticleEngine, { triggerParticles } from "@/components/ParticleEngine";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { ParticleEngine, triggerParticles } from "@/components/ParticleEngine";
 
 export function RecycleScreen() {
-  const { plyBalance, crtBalance, badges, units, logRecycleUnit, submitBatch, cityMetrics } = useRecycling();
-
-  // Animated counters
-  const plyAnim = useSharedValue(plyBalance);
-  const crtAnim = useSharedValue(crtBalance);
-
-  const plyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withTiming(1 + (Math.sin(Date.now() / 200) * 0.05), { duration: 200 }) }],
-  }));
-
-  const crtStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withTiming(1 + (Math.sin(Date.now() / 200) * 0.05), { duration: 200 }) }],
-  }));
-
-  useEffect(() => {
-    plyAnim.value = withTiming(plyBalance, { duration: 1000, easing: Easing.out(Easing.exp) });
-  }, [plyBalance]);
-
-  useEffect(() => {
-    crtAnim.value = withTiming(crtBalance, { duration: 1000, easing: Easing.out(Easing.exp) });
-  }, [crtBalance]);
-
-  // Refs for measuring badge positions
-  const badgeRefs = useRef<Record<string, LayoutRectangle>>({});
-
-  const handleBadgeLayout = (id: string, layout: LayoutRectangle) => {
-    badgeRefs.current[id] = layout;
+  const { plyBalance, crtBalance, badges, logRecycleUnit, submitBatch, cityMetrics } = useRecycling();
+  const [scanning, setScanning] = useState(false);
+  const counterRefs = {
+    ply: useRef<HTMLDivElement>(null),
+    crt: useRef<HTMLDivElement>(null),
   };
 
-  const handleMockScan = async () => {
+  const handleScan = () => {
     logRecycleUnit({ city: "New York", lat: 0, lng: 0 });
-    await submitBatch();
+    triggerParticles(counterRefs.ply.current!, "coin");
+    triggerParticles(counterRefs.crt.current!, "coin");
+  };
 
-    // Trigger coin + sparkle + bounce effects
-    triggerParticles({
-      origin: { x: 200, y: 100 }, // Example origin; in production, measure badge position
-      type: "combo",
-      count: 30,
-      color: "gold",
-      bounce: true,
-    });
+  const handleSubmit = async () => {
+    await submitBatch();
+    triggerParticles(counterRefs.ply.current!, "combo");
+    triggerParticles(counterRefs.crt.current!, "combo");
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
+      <ParticleEngine />
       <MobileHeader title="Recycle Dashboard" />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-        
-        {/* PLY/CRT Counters */}
+
+      <main className="p-4 space-y-6">
+        {/* Scan + Earn */}
         <EcoCard variant="eco">
-          <EcoCardContent>
-            <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>PLY Balance</Text>
-            <Animated.Text style={[{ color: "#ffd700", fontSize: 32 }, plyStyle]}>
-              {plyAnim.value.toFixed(0)}
-            </Animated.Text>
-
-            <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18, marginTop: 8 }}>CRT Balance</Text>
-            <Animated.Text style={[{ color: "#00ffff", fontSize: 32 }, crtStyle]}>
-              {crtAnim.value.toFixed(1)}
-            </Animated.Text>
+          <EcoCardContent className="flex flex-col items-center space-y-2">
+            <EcoButton onClick={handleScan}>Scan Plastic</EcoButton>
           </EcoCardContent>
         </EcoCard>
 
-        {/* Scan / Earn */}
-        <EcoCard variant="eco" style={{ marginTop: 16 }}>
-          <EcoCardContent>
-            <Button onPress={handleMockScan}>Scan Plastic + Earn PLY/CRT</Button>
+        {/* Token Balances */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Balances</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="flex justify-around">
+            <div ref={counterRefs.ply} className="text-center">
+              <AnimatedCounter value={plyBalance} suffix=" PLY" />
+              <p className="text-xs text-muted-foreground">PLY</p>
+            </div>
+            <div ref={counterRefs.crt} className="text-center">
+              <AnimatedCounter value={crtBalance} suffix=" CRT" />
+              <p className="text-xs text-muted-foreground">CRT</p>
+            </div>
           </EcoCardContent>
         </EcoCard>
 
-        {/* NFT Badges */}
-        <EcoCard style={{ marginTop: 16 }}>
+        {/* Badges */}
+        <EcoCard>
           <EcoCardHeader>
             <EcoCardTitle>Badges</EcoCardTitle>
           </EcoCardHeader>
-          <EcoCardContent style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <EcoCardContent className="flex flex-wrap gap-4">
             {badges.map((badge) => (
-              <Animated.View
+              <Badge
                 key={badge.id}
-                onLayout={(e) => handleBadgeLayout(badge.id, e.nativeEvent.layout)}
-                style={{
-                  transform: [
-                    { scale: withTiming(1.2, { duration: 300 }) }, // simple bounce on mount
-                  ],
-                }}
+                variant={badge.unlocked ? "default" : "secondary"}
+                onClick={(e) => triggerParticles(e.currentTarget, badge.rarity)}
+                className="cursor-pointer transform transition-transform hover:scale-110"
               >
-                <Badge variant="default">{badge.name} ({badge.rarity})</Badge>
-              </Animated.View>
+                {badge.name}
+              </Badge>
             ))}
           </EcoCardContent>
         </EcoCard>
 
-        {/* City Metrics & Progress Bars */}
-        <EcoCard style={{ marginTop: 16 }}>
-          <EcoCardHeader>
-            <EcoCardTitle>City Metrics</EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent>
-            {Object.entries(cityMetrics).map(([city, metric]) => (
-              <View key={city} style={{ marginBottom: 12 }}>
-                <Text style={{ color: "#fff", fontWeight: "600" }}>{city}</Text>
-                <ProgressBar value={Math.min((metric.polyEarned / (metric.forecast?.ply || 1)) * 100, 100)} />
-                <Text style={{ color: "#ccc", fontSize: 12 }}>
-                  PLY: {metric.polyEarned.toFixed(0)}, CRT: {metric.crtEarned.toFixed(1)}
-                </Text>
-              </View>
-            ))}
-          </EcoCardContent>
-        </EcoCard>
-      </ScrollView>
+        {/* City Metrics */}
+        {Object.entries(cityMetrics).map(([city, metric]) => (
+          <EcoCard key={city}>
+            <EcoCardHeader>
+              <EcoCardTitle>{city} Metrics</EcoCardTitle>
+            </EcoCardHeader>
+            <EcoCardContent>
+              <p>PLY Forecast: {metric.forecast?.ply || 0}</p>
+              <p>CRT Forecast: {metric.forecast?.crt || 0}</p>
+              <Progress value={(metric.polyEarned / (metric.forecast?.ply || 1)) * 100} />
+            </EcoCardContent>
+          </EcoCard>
+        ))}
 
-      {/* Particle Engine */}
-      <ParticleEngine />
-    </View>
+        <EcoButton onClick={handleSubmit} variant="eco" className="w-full mt-4">
+          Submit Batch
+        </EcoButton>
+      </main>
+    </div>
   );
 }
