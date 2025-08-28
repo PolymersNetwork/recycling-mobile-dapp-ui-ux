@@ -1,16 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
+
 import { useWallet } from "@/hooks/useWallet";
 import { useProjects } from "@/hooks/useProjects";
 import { useMarketplace } from "@/hooks/useMarketplace";
-import { useCamera } from "@/hooks/useCamera";
 import { generateUUID } from "@/lib/utils";
-import { 
-  fetchCityMetrics, 
-  fetchBadgeStats, 
-  fetchHistoricalTrends 
-} from "@/lib/api";
+import { fetchCityMetrics, fetchBadgeStats, fetchHistoricalTrends } from "@/lib/api";
 import { calculateRewardForecast, calculateBadgeRarity } from "@/lib/forecast";
-import { Badge as BadgeType, Project, MarketplaceItem } from "@/types";
+import type { Badge as BadgeType, Project, MarketplaceItem } from "@/types";
 
 interface Unit {
   id: string;
@@ -31,10 +30,6 @@ interface CityMetrics {
 
 interface RecyclingContextProps {
   wallet: ReturnType<typeof useWallet>["wallet"];
-  balances: ReturnType<typeof useWallet>["balances"];
-  connectWallet: ReturnType<typeof useWallet>["connectWallet"];
-  disconnectWallet: ReturnType<typeof useWallet>["disconnectWallet"];
-  refreshBalances: ReturnType<typeof useWallet>["refreshBalances"];
   plyBalance: number;
   crtBalance: number;
   badges: BadgeType[];
@@ -47,7 +42,6 @@ interface RecyclingContextProps {
   projects: Project[];
   loadingProjects: boolean;
   contributeToProject: (projectId: string, amount: number, currency: "PLY" | "USDC" | "SOL") => Promise<void>;
-  createProject: (data: Omit<Project, "id" | "currentAmount" | "contributors">) => Promise<Project>;
   marketplace: MarketplaceItem[];
   loadingMarketplace: boolean;
   refreshMarketplace: () => Promise<void>;
@@ -59,7 +53,6 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const { wallet, balances, connectWallet, disconnectWallet, refreshBalances } = useWallet();
   const { projects, loading: loadingProjects, fetchProjects, contributeToProject, createProject } = useProjects();
   const { marketplace, loading: loadingMarketplace, fetchMarketplace } = useMarketplace();
-  const { isScanning, scanResult, cameraType, capturePhoto, scanQRCode, scanNFC, uploadFromGallery, clearResult } = useCamera();
 
   const [plyBalance, setPlyBalance] = useState(0);
   const [crtBalance, setCrtBalance] = useState(0);
@@ -67,27 +60,50 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const [badges, setBadges] = useState<BadgeType[]>([]);
   const [cityMetrics, setCityMetrics] = useState<Record<string, CityMetrics>>({});
 
+  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
+  const metaplex = wallet?.keypair
+    ? Metaplex.make(connection)
+        .use(keypairIdentity(wallet.keypair))
+        .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }))
+    : null;
+
+  const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
+  const CANDY_MACHINE_ID = new PublicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID!);
+
   // Log a single scanned unit
   const logRecycleUnit = (unit: Omit<Unit, "id" | "scannedAt">) => {
     const newUnit: Unit = { ...unit, id: generateUUID(), scannedAt: new Date() };
-    setUnits(prev => [...prev, newUnit]);
+    setUnits((prev) => [...prev, newUnit]);
   };
 
-  // Submit batch: verify units, update balances, refresh metrics & badges
+  // Submit batch: mint SPL + NFT rewards on-chain
   const submitBatch = async () => {
-    if (units.length === 0) return;
+    if (!wallet?.publicKey || !metaplex || units.length === 0) return;
 
-    // Simulate verification & rewards
-    const verifiedUnits = units; // Mock: all units verified
+    const verifiedUnits = units; // mock verification
     const polyEarned = verifiedUnits.length;
     const crtEarned = verifiedUnits.length * 0.5;
 
-    setPlyBalance(prev => prev + polyEarned);
-    setCrtBalance(prev => prev + crtEarned);
+    // Mint PLY tokens to wallet
+    try {
+      const ata = await getOrCreateAssociatedTokenAccount(connection, wallet.keypair, PLY_MINT, wallet.publicKey);
+      await mintTo(connection, wallet.keypair, PLY_MINT, ata.address, wallet.keypair, BigInt(polyEarned));
+      setPlyBalance((prev) => prev + polyEarned);
+    } catch (err) {
+      console.error("Failed to mint PLY:", err);
+    }
 
-    setUnits([]); // Clear units after submission
+    // Mint NFT badges for milestone
+    try {
+      await metaplex.nfts().mintFromCandyMachine({ candyMachine: CANDY_MACHINE_ID });
+      await refreshBadges();
+    } catch (err) {
+      console.error("Failed to mint NFT badge:", err);
+    }
+
+    setCrtBalance((prev) => prev + crtEarned);
+    setUnits([]); // clear batch after submission
     await refreshCityMetrics();
-    await refreshBadges();
   };
 
   const refreshCityMetrics = async () => {
@@ -105,7 +121,7 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshBadges = async () => {
     const badgeData = await fetchBadgeStats();
-    const updatedBadges = badgeData.map(badge => ({
+    const updatedBadges = badgeData.map((badge) => ({
       ...badge,
       rarity: calculateBadgeRarity(badge),
     }));
@@ -127,10 +143,6 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
     <RecyclingContext.Provider
       value={{
         wallet,
-        balances,
-        connectWallet,
-        disconnectWallet,
-        refreshBalances,
         plyBalance,
         crtBalance,
         badges,
@@ -143,10 +155,9 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
         projects,
         loadingProjects,
         contributeToProject,
-        createProject,
         marketplace,
         loadingMarketplace,
-        refreshMarketplace
+        refreshMarketplace,
       }}
     >
       {children}
