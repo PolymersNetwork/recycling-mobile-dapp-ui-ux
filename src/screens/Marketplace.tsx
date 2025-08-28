@@ -1,84 +1,63 @@
 "use client";
 
-import React, { useRef } from "react";
-import { MobileHeader } from "@/components/mobile/MobileHeader";
+import { useRef } from "react";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
-import { useMarketplace } from "@/hooks/useMarketplace";
-import { useRecycling } from "@/contexts/RecyclingContext";
+import { Badge as UiBadge } from "@/components/ui/badge";
 import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
+import { usePortfolio } from "@/hooks/usePortfolio";
+import { Heart } from "lucide-react";
 
-export function Marketplace() {
-  const { marketplaceItems, purchaseItem, loading } = useMarketplace();
-  const { plyBalance, crtBalance, addTokens, addBadge, badges } = useRecycling();
+export default function Marketplace() {
+  const { projects, contributeToProject, nftBadges } = usePortfolio();
   const particleRef = useRef<ParticleRef>(null);
 
+  const mockItems = [
+    { id: "1", title: "Carbon Credit Pack", description: "Offset 100kg CO2", price: 50, currency: "PLY", category: "carbon-offset" },
+    { id: "2", title: "Reusable Bottle", description: "Eco-friendly bottle", price: 25, currency: "USDC", category: "products" },
+    { id: "3", title: "Plant a Tree Donation", description: "Support tree planting", price: 10, currency: "SOL", category: "donations" },
+  ];
+
   const handlePurchase = async (itemId: string) => {
-    try {
-      const item = await purchaseItem(itemId);
+    const item = mockItems.find(i => i.id === itemId);
+    if (!item) return;
 
-      // Update token balances
-      if (item.currency === "PLY") {
-        addTokens(item.price, 0, 0); // PLY, CRT, Units
-        particleRef.current?.burstCoins({ count: 25, color: "#FFD700" });
-      }
-      if (item.currency === "CRT") {
-        addTokens(0, item.price, 0);
-        particleRef.current?.burstCoins({ count: 20, color: "#00FFAA" });
-      }
-
-      // Randomly grant an NFT badge reward
-      const grantNFT = Math.random() < 0.3; // 30% chance to get NFT badge
-      if (grantNFT) {
-        const newBadge = {
-          id: Date.now().toString(),
-          name: `Eco Badge #${badges.length + 1}`,
-          emoji: "🏆",
-          rarity: ["common", "rare", "epic", "legendary"][Math.floor(Math.random() * 4)] as any,
-          unlocked: true,
-          unlockedAt: new Date().toISOString(),
-        };
-        addBadge(newBadge);
-
-        // Trigger sparkle animation
-        particleRef.current?.sparkleBadge({
-          count: 20,
-          color: newBadge.rarity === "legendary" ? "#FFD700" :
-                 newBadge.rarity === "epic" ? "#4B6EE2" :
-                 newBadge.rarity === "rare" ? "#00FFAA" : "#AAAAAA",
-        });
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    // Simulate purchase + gamified reward
+    await contributeToProject(item.id, item.price); 
+    particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
+    particleRef.current?.sparkleBadge({ count: 10, color: "#FFAA00" });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
-      {/* Particle Engine */}
       <ParticleEngine ref={particleRef} />
-
-      <MobileHeader title="Marketplace" />
-
-      <main className="p-4 space-y-6">
-        {marketplaceItems.map((item) => (
+      <main className="p-4 space-y-4">
+        {mockItems.map(item => (
           <EcoCard key={item.id} variant="elevated">
             <EcoCardHeader>
               <EcoCardTitle>{item.title}</EcoCardTitle>
             </EcoCardHeader>
-            <EcoCardContent className="space-y-2">
+            <EcoCardContent>
               <p>{item.description}</p>
-              <p>Price: {item.price} {item.currency}</p>
-              <EcoButton
-                variant="eco"
-                disabled={loading || !item.available}
-                onClick={() => handlePurchase(item.id)}
-              >
-                {item.available ? "Buy" : "Sold Out"}
-              </EcoButton>
+              <div className="mt-4 flex justify-between items-center">
+                <span>{item.price} {item.currency}</span>
+                <EcoButton variant="eco" onClick={() => handlePurchase(item.id)}>
+                  <Heart className="w-4 h-4" /> Buy
+                </EcoButton>
+              </div>
             </EcoCardContent>
           </EcoCard>
         ))}
+
+        <h3 className="text-lg font-bold mt-6">Your NFT Badges</h3>
+        <div className="grid grid-cols-4 gap-3 mt-2">
+          {nftBadges.map(b => (
+            <div key={b.id} className="text-center">
+              <img src={b.icon} className="w-12 h-12 rounded-full mx-auto mb-1" />
+              <UiBadge className="text-xs">{b.name}</UiBadge>
+            </div>
+          ))}
+        </div>
       </main>
     </div>
   );
