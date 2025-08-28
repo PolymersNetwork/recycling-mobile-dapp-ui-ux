@@ -18,31 +18,33 @@ export function Profile() {
   const [animatedCrt, setAnimatedCrt] = useState(crtBalance);
   const [animatedUnits, setAnimatedUnits] = useState(units);
 
-  // Animate counters whenever values update
+  // Animate counters & trigger particle bursts on growth
   useEffect(() => {
     if (plyBalance > animatedPly) {
       setAnimatedPly(plyBalance);
-      particleRef.current?.burstCoins({ count: 30, color: "#FFD700" });
+      particleRef.current?.burstCoins({ count: 30, color: "#FFD700" }); // gold coins for PLY
     }
   }, [plyBalance]);
 
   useEffect(() => {
     if (crtBalance > animatedCrt) {
       setAnimatedCrt(crtBalance);
-      particleRef.current?.burstCoins({ count: 20, color: "#00FFAA" });
+      particleRef.current?.burstCoins({ count: 20, color: "#00FFAA" }); // teal coins for CRT
     }
   }, [crtBalance]);
 
   useEffect(() => {
     if (units > animatedUnits) {
       setAnimatedUnits(units);
-      particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" });
+      particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" }); // amber sparkles for scans
     }
   }, [units]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+      {/* Particle Engine for all bursts */}
       <ParticleEngine ref={particleRef} />
+
       <MobileHeader title="Profile" showSettings />
 
       <main className="p-4 space-y-6">
@@ -76,6 +78,7 @@ export function Profile() {
               <p className="text-xs text-muted-foreground">Badges</p>
             </div>
           </EcoCard>
+
           <EcoCard padding="sm">
             <div className="text-center">
               <Target className="w-6 h-6 text-eco-success mx-auto mb-2" />
@@ -83,6 +86,7 @@ export function Profile() {
               <p className="text-xs text-muted-foreground">PLY Earned</p>
             </div>
           </EcoCard>
+
           <EcoCard padding="sm">
             <div className="text-center">
               <Zap className="w-6 h-6 text-eco-primary mx-auto mb-2" />
@@ -103,7 +107,13 @@ export function Profile() {
                 <div
                   key={i}
                   className="text-center relative"
-                  onMouseEnter={() => particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" })}
+                  onMouseEnter={() => particleRef.current?.sparkleBadge({
+                    count: 20,
+                    color: badge.rarity === "legendary" ? "#FFD700" :
+                           badge.rarity === "epic" ? "#4B6EE2" :
+                           badge.rarity === "rare" ? "#00FFAA" :
+                           "#AAAAAA"
+                  })}
                 >
                   <div className="w-12 h-12 bg-eco-primary/10 rounded-full flex items-center justify-center mx-auto mb-2 transform transition-transform duration-300 hover:scale-110">
                     <span className="text-xl">{badge.emoji || "🏆"}</span>
