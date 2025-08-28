@@ -1,62 +1,115 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, TrendingUp, TrendingDown, RefreshCw, Plus, Eye, EyeOff } from "lucide-react";
-import type { TokenBalance } from "@/types";
+import { Wallet, Plus, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import type { TokenBalance, NFTBadge } from "@/types";
 
-const mockBalances: TokenBalance[] = [
-  { symbol: "POLY", amount: 2840.75, usdValue: 568.15, change24h: 12.5 },
-  { symbol: "SOL", amount: 5.2, usdValue: 832.40, change24h: -3.2 },
-  { symbol: "USDC", amount: 150.0, usdValue: 150.0, change24h: 0.0 },
-  { symbol: "SUI", amount: 8.7, usdValue: 43.50, change24h: 8.1 },
-];
-
-const mockTransactions = [
-  { id: "1", type: "reward", amount: "+25 POLY", description: "Plastic bottle scan", timestamp: "2 hours ago" },
-  { id: "2", type: "contribution", amount: "-100 USDC", description: "Ocean Cleanup project", timestamp: "1 day ago" },
-  { id: "3", type: "reward", amount: "+50 POLY", description: "Daily challenge bonus", timestamp: "2 days ago" },
-  { id: "4", type: "purchase", amount: "-2 SOL", description: "Carbon credit purchase", timestamp: "3 days ago" },
-];
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+const PLY_MINT = new PublicKey("PLYTokenMintAddressHere"); // Replace with your PLY SPL token mint
+const NFT_COLLECTION_MINT = new PublicKey("NFTCollectionMintAddressHere"); // Replace with your NFT collection mint
 
 export function Portfolio() {
+  const { publicKey, signTransaction, sendTransaction } = useWallet();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [balances, setBalances] = useState<TokenBalance[]>([]);
+  const [nftBadges, setNftBadges] = useState<NFTBadge[]>([]);
 
-  const totalUsdValue = mockBalances.reduce((sum, balance) => sum + balance.usdValue, 0);
-  const totalChange24h = mockBalances.reduce((sum, balance) => sum + (balance.usdValue * balance.change24h / 100), 0);
-  const totalChangePercent = (totalChange24h / totalUsdValue) * 100;
+  const connection = new Connection(RPC_URL, "confirmed");
+
+  // Fetch SPL token balances for PLY and SOL
+  const fetchBalances = async () => {
+    if (!publicKey) return;
+
+    try {
+      // Get PLY balance
+      const plyAccount = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
+      const plyBalance = Number(plyAccount.amount);
+
+      // Get SOL balance
+      const solBalance = await connection.getBalance(publicKey) / 1e9;
+
+      setBalances([
+        { symbol: "PLY", amount: plyBalance, usdValue: 0, change24h: 0 },
+        { symbol: "SOL", amount: solBalance, usdValue: 0, change24h: 0 },
+      ]);
+    } catch (err) {
+      console.error("Failed to fetch balances:", err);
+    }
+  };
+
+  // Fetch NFT badges (mock for now)
+  const fetchNFTBadges = async () => {
+    if (!publicKey) return;
+
+    setNftBadges([
+      { name: "Eco Warrior", image: "/badges/eco-warrior.png", mintedAt: Date.now() - 86400000 },
+      { name: "Ocean Hero", image: "/badges/ocean-hero.png", mintedAt: Date.now() - 3600000 },
+    ]);
+  };
+
+  useEffect(() => {
+    if (publicKey) {
+      fetchBalances();
+      fetchNFTBadges();
+    }
+  }, [publicKey]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    await fetchBalances();
+    await fetchNFTBadges();
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const getTokenIcon = (symbol: string) => {
-    const icons: Record<string, string> = {
-      POLY: "🌱",
-      SOL: "◎",
-      USDC: "$",
-      SUI: "~"
-    };
-    return icons[symbol] || "?";
-  };
+  // Mint PLY SPL reward
+  const mintPLYReward = async (amount: number) => {
+    if (!publicKey || !signTransaction) return;
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "reward": return "🎁";
-      case "contribution": return "💚";
-      case "purchase": return "🛒";
-      default: return "💱";
+    try {
+      const ata = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
+
+      const tx = new Transaction().add(
+        mintTo({
+          mint: PLY_MINT,
+          destination: ata.address,
+          amount,
+          authority: publicKey,
+          programId: TOKEN_PROGRAM_ID,
+        })
+      );
+
+      const signedTx = await signTransaction(tx);
+      const txId = await sendTransaction(signedTx, connection);
+      await connection.confirmTransaction(txId, "confirmed");
+
+      await fetchBalances();
+    } catch (err) {
+      console.error("Failed to mint PLY reward:", err);
     }
   };
+
+  // Mint NFT badge
+  const mintNFTBadge = async (badgeName: string, badgeImage: string) => {
+    if (!publicKey) return;
+
+    // TODO: Replace with real Metaplex on-chain minting
+    setNftBadges((prev) => [{ name: badgeName, image: badgeImage, mintedAt: Date.now() }, ...prev]);
+  };
+
+  const getTokenIcon = (symbol: string) => `https://cryptoicons.cc/64/color/${symbol.toLowerCase()}.png`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
       <MobileHeader title="Portfolio" />
-      
+
       <main className="p-4 space-y-6">
         {/* Total Balance */}
         <EcoCard variant="eco">
@@ -72,7 +125,7 @@ export function Portfolio() {
                 >
                   {balanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
                 </EcoButton>
-                
+
                 <EcoButton
                   variant="eco-outline"
                   size="icon"
@@ -86,37 +139,22 @@ export function Portfolio() {
             </div>
           </EcoCardHeader>
           <EcoCardContent>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-white">
-                {balanceVisible ? `$${totalUsdValue.toLocaleString()}` : "••••••"}
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {totalChangePercent >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-eco-success" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-eco-danger" />
-                )}
-                <span className={`text-sm font-medium ${
-                  totalChangePercent >= 0 ? "text-eco-success" : "text-eco-danger"
-                }`}>
-                  {totalChangePercent >= 0 ? "+" : ""}{totalChangePercent.toFixed(2)}% (24h)
-                </span>
-              </div>
+            <div className="space-y-2 text-white font-bold text-3xl">
+              {balanceVisible ? `$${balances.reduce((sum, b) => sum + b.usdValue, 0).toLocaleString()}` : "••••••"}
             </div>
           </EcoCardContent>
         </EcoCard>
 
         {/* Wallet Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <EcoButton variant="eco" className="h-12">
+          <EcoButton variant="eco" className="h-12" onClick={() => mintPLYReward(50)}>
             <Plus className="w-4 h-4" />
-            Connect Wallet
+            Claim PLY Reward
           </EcoButton>
-          
-          <EcoButton variant="eco-outline" className="h-12">
+
+          <EcoButton variant="eco-outline" className="h-12" onClick={() => mintNFTBadge("Eco Hero", "/badges/eco-hero.png")}>
             <Wallet className="w-4 h-4" />
-            Manage Wallets
+            Mint NFT Badge
           </EcoButton>
         </div>
 
@@ -124,44 +162,21 @@ export function Portfolio() {
         <Tabs defaultValue="balances" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="balances">Balances</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="badges">NFT Badges</TabsTrigger>
           </TabsList>
 
           {/* Token Balances */}
           <TabsContent value="balances" className="space-y-3">
-            {mockBalances.map((balance) => (
+            {balances.map((balance) => (
               <EcoCard key={balance.symbol} variant="elevated">
                 <EcoCardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-eco-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-lg">{getTokenIcon(balance.symbol)}</span>
-                      </div>
-                      
-                      <div>
-                        <p className="font-semibold">{balance.symbol}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {balanceVisible ? balance.amount.toLocaleString() : "••••••"}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        {balanceVisible ? `$${balance.usdValue.toFixed(2)}` : "••••••"}
+                  <div className="flex items-center space-x-3">
+                    <img src={getTokenIcon(balance.symbol)} className="w-10 h-10 rounded-full" alt={balance.symbol} />
+                    <div>
+                      <p className="font-semibold">{balance.symbol}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {balanceVisible ? balance.amount.toLocaleString() : "••••••"}
                       </p>
-                      <div className="flex items-center space-x-1">
-                        {balance.change24h >= 0 ? (
-                          <TrendingUp className="w-3 h-3 text-eco-success" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 text-eco-danger" />
-                        )}
-                        <span className={`text-xs ${
-                          balance.change24h >= 0 ? "text-eco-success" : "text-eco-danger"
-                        }`}>
-                          {balance.change24h >= 0 ? "+" : ""}{balance.change24h.toFixed(1)}%
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </EcoCardContent>
@@ -169,37 +184,18 @@ export function Portfolio() {
             ))}
           </TabsContent>
 
-          {/* Transaction History */}
-          <TabsContent value="history" className="space-y-3">
-            {mockTransactions.map((tx) => (
-              <EcoCard key={tx.id} variant="elevated">
-                <EcoCardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-                        <span className="text-lg">{getTransactionIcon(tx.type)}</span>
-                      </div>
-                      
-                      <div>
-                        <p className="font-medium">{tx.description}</p>
-                        <p className="text-xs text-muted-foreground">{tx.timestamp}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className={`font-semibold ${
-                        tx.amount.startsWith("+") ? "text-eco-success" : "text-eco-danger"
-                      }`}>
-                        {tx.amount}
-                      </p>
-                      <Badge variant="secondary" className="text-xs">
-                        {tx.type}
-                      </Badge>
-                    </div>
-                  </div>
-                </EcoCardContent>
-              </EcoCard>
-            ))}
+          {/* NFT Badges */}
+          <TabsContent value="badges" className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              {nftBadges.map((badge) => (
+                <EcoCard key={badge.name} variant="elevated">
+                  <EcoCardContent className="flex flex-col items-center space-y-2">
+                    <img src={badge.image} className="w-16 h-16 rounded-full" alt={badge.name} />
+                    <p className="font-medium">{badge.name}</p>
+                  </EcoCardContent>
+                </EcoCard>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </main>
