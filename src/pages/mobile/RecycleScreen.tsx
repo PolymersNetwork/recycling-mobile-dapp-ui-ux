@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AnimatedCounter } from "@/components/AnimatedCounter";
-import { ParticleEngine, triggerParticles } from "@/components/ParticleEngine";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 import { useRecycling } from "@/contexts/RecyclingContext";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
-import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 
 interface RecycleScreenProps {
   walletKeypair: any;
@@ -21,83 +21,78 @@ interface RecycleScreenProps {
 
 export function RecycleScreen({ walletKeypair, plyMint, candyMachineId }: RecycleScreenProps) {
   const { plyBalance, crtBalance, badges, units, logRecycleUnit, refreshBalances } = useRecycling();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const particleRef = useRef<ParticleRef>(null);
 
-  const counterRefs = {
-    ply: useRef<HTMLDivElement>(null),
-    crt: useRef<HTMLDivElement>(null),
-  };
-
-  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
+  const connection = new Connection(
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+    "confirmed"
+  );
   const wallet = walletKeypair.publicKey;
 
   const metaplex = Metaplex.make(connection)
     .use(keypairIdentity(walletKeypair))
     .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }));
 
-  const [contributionInProgress, setContributionInProgress] = useState(false);
-
   const handleRecycleScan = async () => {
-    // Log a unit locally
     logRecycleUnit({ city: "Local City", lat: 0, lng: 0 });
 
-    // Animate coin burst on PLY/CRT counters
-    if (counterRefs.ply.current) triggerParticles(counterRefs.ply.current, "coin");
-    if (counterRefs.crt.current) triggerParticles(counterRefs.crt.current, "coin");
+    // Trigger particle bursts on counters
+    particleRef.current?.burstCoins({ count: 30, color: "#FFD700" }); // PLY
+    particleRef.current?.burstCoins({ count: 20, color: "#00FFAA" }); // CRT
 
-    // Update on-chain SPL token balances & mint Candy Machine NFT
     try {
-      setContributionInProgress(true);
+      setIsProcessing(true);
 
-      // 1️⃣ Mint SPL token reward (PLY)
+      // Mint SPL tokens (100 PLY per scan)
       const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
       await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, 100);
 
-      // 2️⃣ Mint NFT badge via Candy Machine
+      // Mint NFT via Candy Machine
       await metaplex.candyMachines().mint({ candyMachine: candyMachineId, payer: walletKeypair });
 
-      // 3️⃣ Refresh balances and badges in context
+      // Refresh balances & badges
       await refreshBalances();
 
-      // 4️⃣ Trigger badge sparkle + bounce
-      badges.forEach(b => triggerParticles(document.getElementById(`badge-${b.id}`)!, b.rarity));
-
+      // Trigger badge sparkle & bounce effects
+      badges.forEach(b => particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" }));
     } catch (err) {
-      console.error("On-chain contribution failed:", err);
+      console.error("Contribution failed:", err);
     } finally {
-      setContributionInProgress(false);
+      setIsProcessing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
-      <ParticleEngine />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+      <ParticleEngine ref={particleRef} />
       <MobileHeader title="Recycle Dashboard" />
 
       <main className="p-4 space-y-6">
         {/* Animated Counters */}
         <EcoCard>
           <EcoCardContent className="flex justify-around">
-            <div ref={counterRefs.ply} className="text-center">
+            <div className="text-center">
               <AnimatedCounter value={plyBalance} suffix=" PLY" />
               <p className="text-xs text-muted-foreground">PLY Balance</p>
             </div>
-            <div ref={counterRefs.crt} className="text-center">
+            <div className="text-center">
               <AnimatedCounter value={crtBalance} suffix=" CRT" />
               <p className="text-xs text-muted-foreground">CRT Balance</p>
             </div>
           </EcoCardContent>
         </EcoCard>
 
-        {/* Scan / Contribute */}
+        {/* Scan / Contribute Button */}
         <EcoCard>
           <EcoCardContent>
-            <EcoButton onClick={handleRecycleScan} disabled={contributionInProgress}>
-              {contributionInProgress ? "Processing..." : "Scan & Contribute"}
+            <EcoButton onClick={handleRecycleScan} disabled={isProcessing}>
+              {isProcessing ? "Processing..." : "Scan & Contribute"}
             </EcoButton>
           </EcoCardContent>
         </EcoCard>
 
-        {/* Level + Streak Progress */}
+        {/* Level & Streak Progress */}
         <EcoCard>
           <EcoCardHeader>
             <EcoCardTitle>Progress</EcoCardTitle>
@@ -110,7 +105,7 @@ export function RecycleScreen({ walletKeypair, plyMint, candyMachineId }: Recycl
           </EcoCardContent>
         </EcoCard>
 
-        {/* Badges */}
+        {/* NFT Badges */}
         <EcoCard>
           <EcoCardHeader>
             <EcoCardTitle>Your NFT Badges</EcoCardTitle>
@@ -121,7 +116,7 @@ export function RecycleScreen({ walletKeypair, plyMint, candyMachineId }: Recycl
                 key={badge.id}
                 id={`badge-${badge.id}`}
                 className="cursor-pointer transform transition-transform hover:scale-110"
-                onClick={(e) => triggerParticles(e.currentTarget, badge.rarity)}
+                onClick={(e) => particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" })}
               >
                 <Badge variant={badge.unlocked ? "default" : "secondary"}>{badge.name}</Badge>
               </div>
