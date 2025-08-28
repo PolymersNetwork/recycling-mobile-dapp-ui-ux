@@ -1,4 +1,4 @@
-# 🌱 Polymers v2.6 - Mobile Eco App
+# 🌱 Polymers v1.0 - Mobile Eco App
 
 A comprehensive mobile-first sustainability application built with React, Capacitor, and TypeScript. Polymers gamifies environmental action by rewarding users for plastic collection, eco-project contributions, and sustainable behaviors.
 
