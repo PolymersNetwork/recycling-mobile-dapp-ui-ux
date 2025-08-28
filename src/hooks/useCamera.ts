@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useRecycling } from '@/context/RecyclingContext';
 
-interface ScanResult {
+export interface ScanResult {
   plasticType: string;
   confidence: number;
   tokensEarned: number;
@@ -15,38 +16,50 @@ export function useCamera() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cameraType, setCameraType] = useState<'camera' | 'qr' | 'nfc'>('camera');
   const { toast } = useToast();
+  const { logRecycleUnit } = useRecycling();
 
-  const capturePhoto = async (): Promise<ScanResult> => {
+  const processScan = async (type: 'camera' | 'qr' | 'nfc') => {
     setIsScanning(true);
     setScanResult(null);
-    setCameraType('camera');
+    setCameraType(type);
 
     try {
-      // Simulate camera capture and AI processing
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
+      // Simulate camera/NFC/QR capture + AI verification
+      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
+
       const mockResult: ScanResult = {
-        plasticType: ['PET Bottle', 'HDPE Container', 'PP Cup', 'LDPE Bag'][Math.floor(Math.random() * 4)],
-        confidence: 0.85 + Math.random() * 0.14,
-        tokensEarned: Math.floor(15 + Math.random() * 25),
-        verified: Math.random() > 0.2,
+        plasticType: type === 'camera'
+          ? ['PET Bottle', 'HDPE Container', 'PP Cup', 'LDPE Bag'][Math.floor(Math.random() * 4)]
+          : type === 'qr' ? 'Smart Bin QR' : 'NFC Smart Bin',
+        confidence: 0.8 + Math.random() * 0.18,
+        tokensEarned: Math.floor(15 + Math.random() * 30),
+        verified: Math.random() > 0.1,
         location: 'San Francisco, CA',
         imageUrl: `https://images.unsplash.com/photo-${Date.now()}?w=400&h=300`
       };
 
       setScanResult(mockResult);
-      
+
+      // Log to recycling context if verified
+      if (mockResult.verified) {
+        logRecycleUnit({
+          city: mockResult.location || 'Unknown',
+          lat: 37.7749 + Math.random() * 0.01,
+          lng: -122.4194 + Math.random() * 0.01,
+        });
+      }
+
       toast({
-        title: "Scan Successful! 📸",
+        title: `${type.toUpperCase()} Scan Successful!`,
         description: `+${mockResult.tokensEarned} PLY tokens earned`,
       });
 
       return mockResult;
     } catch (error) {
       toast({
-        title: "Scan Failed",
-        description: "Please try again",
-        variant: "destructive"
+        title: `${type.toUpperCase()} Scan Failed`,
+        description: 'Please try again',
+        variant: 'destructive',
       });
       throw error;
     } finally {
@@ -54,90 +67,18 @@ export function useCamera() {
     }
   };
 
-  const scanQRCode = async (): Promise<ScanResult> => {
-    setIsScanning(true);
-    setScanResult(null);
-    setCameraType('qr');
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockResult: ScanResult = {
-        plasticType: 'Smart Bin QR',
-        confidence: 0.95,
-        tokensEarned: Math.floor(20 + Math.random() * 15),
-        verified: true,
-        location: 'Recycling Center',
-        imageUrl: `https://images.unsplash.com/photo-${Date.now()}?w=400&h=300`
-      };
-
-      setScanResult(mockResult);
-      
-      toast({
-        title: "QR Scan Successful! 📱",
-        description: `+${mockResult.tokensEarned} PLY tokens earned`,
-      });
-
-      return mockResult;
-    } catch (error) {
-      toast({
-        title: "QR Scan Failed",
-        description: "Please try again",
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const scanNFC = async (): Promise<ScanResult> => {
-    setIsScanning(true);
-    setScanResult(null);
-    setCameraType('nfc');
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockResult: ScanResult = {
-        plasticType: 'NFC Smart Bin',
-        confidence: 0.98,
-        tokensEarned: Math.floor(25 + Math.random() * 20),
-        verified: true,
-        location: 'Smart Collection Point',
-        imageUrl: `https://images.unsplash.com/photo-${Date.now()}?w=400&h=300`
-      };
-
-      setScanResult(mockResult);
-      
-      toast({
-        title: "NFC Scan Successful! 📡",
-        description: `+${mockResult.tokensEarned} PLY tokens earned`,
-      });
-
-      return mockResult;
-    } catch (error) {
-      toast({
-        title: "NFC Scan Failed",
-        description: "Please try again",
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-      setIsScanning(false);
-    }
-  };
+  const capturePhoto = () => processScan('camera');
+  const scanQRCode = () => processScan('qr');
+  const scanNFC = () => processScan('nfc');
 
   const uploadFromGallery = async () => {
     toast({
-      title: "Gallery Upload",
-      description: "Photo upload feature coming soon!",
+      title: 'Gallery Upload',
+      description: 'Photo upload feature coming soon!',
     });
   };
 
-  const clearResult = () => {
-    setScanResult(null);
-  };
+  const clearResult = () => setScanResult(null);
 
   return {
     isScanning,
@@ -147,6 +88,6 @@ export function useCamera() {
     scanQRCode,
     scanNFC,
     uploadFromGallery,
-    clearResult
+    clearResult,
   };
 }
