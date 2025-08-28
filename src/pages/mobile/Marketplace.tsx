@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
 import { TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 
 interface MarketplaceItem {
   id: number;
@@ -44,6 +46,9 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
 
   const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
   const [badges, setBadges] = useState<NFTBadge[]>([]);
+  const [animatedBalances, setAnimatedBalances] = useState<Record<string, number>>({});
+
+  const particleRef = useRef<ParticleRef>(null);
 
   const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
   const metaplex = Metaplex.make(connection)
@@ -65,6 +70,13 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
       });
       setSplBalances(tokens);
 
+      // Animate counters to reflect new balances
+      const newAnimated: Record<string, number> = {};
+      tokens.forEach(t => {
+        newAnimated[t.symbol] = animatedBalances[t.symbol] || 0;
+      });
+      setAnimatedBalances(newAnimated);
+
       // NFT badges
       const nftAccounts = await metaplex.nfts().findAllByOwner({ owner: wallet });
       const nfts: NFTBadge[] = nftAccounts.map(nft => ({ name: nft.name, image: nft.metadataUri }));
@@ -82,14 +94,31 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
     try {
       toast({ title: "Purchase in progress...", description: `Spending ${item.price} to buy ${item.title}` });
 
-      // Example: mint SPL token as reward for purchase
+      // Animate coins from button
+      particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
+
+      // Example: mint SPL token as reward
       if (item.price.includes("POLY")) {
         const amount = parseInt(item.price);
         const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
         await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, amount);
+
+        // Animate balance count up
+        setAnimatedBalances(prev => ({
+          ...prev,
+          [plyMint.toBase58()]: (prev[plyMint.toBase58()] || 0) + amount
+        }));
+
+        particleRef.current?.burstCoins({ count: 40, color: "#FFD700" }); // bigger burst for SPL gain
       }
 
+      // Mint NFT badge & animate sparkles/bounce
+      const nft = await metaplex.candyMachines().mint({ candyMachine: plyMint }); // example
+      particleRef.current?.sparkleBadge({ color: "#FFD700", count: 30 }); // gold sparkle
+      particleRef.current?.bounceBadge();
+
       toast({ title: "Purchase Successful!", description: `${item.title} purchased!` });
+
       await fetchOnChainData();
     } catch (err) {
       console.error("Purchase failed:", err);
@@ -106,7 +135,8 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+      <ParticleEngine ref={particleRef} />
       <MobileHeader title="Marketplace" />
 
       <main className="p-4 space-y-6">
@@ -118,7 +148,7 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
           <EcoCardContent className="flex flex-wrap gap-2">
             {splBalances.length ? splBalances.map(t => (
               <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
-                {t.symbol}: {t.amount.toFixed(2)}
+                {t.symbol}: <AnimatedCounter value={animatedBalances[t.symbol] || 0} />
               </Badge>
             )) : <span className="text-sm text-muted-foreground">No SPL tokens yet</span>}
           </EcoCardContent>
@@ -131,7 +161,7 @@ export function Marketplace({ walletKeypair, plyMint }: MarketplaceProps) {
           </EcoCardHeader>
           <EcoCardContent className="flex flex-wrap gap-4">
             {badges.length ? badges.map((badge, idx) => (
-              <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden">
+              <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden relative">
                 <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
                 <span className="text-xs truncate text-center mt-1">{badge.name}</span>
               </div>
