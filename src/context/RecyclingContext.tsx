@@ -1,175 +1,224 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { useWallet } from "@/contexts/WalletContext";
+import { transact, Web3MobileWallet } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { Metaplex } from "@metaplex-foundation/js";
-import type { Badge, Project, MarketplaceItem, TokenBalance, User } from "@/types";
+import { ParticleRef } from "@/components/ui/ParticleEngine";
+import type { Badge, Project, TokenBalance, MarketplaceItem, User } from "@/types";
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
 const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
 const CANDY_MACHINE_ID = new PublicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID!);
 
 interface RecyclingContextProps {
+  user: User;
+  balances: TokenBalance[];
+  projects: Project[];
+  marketplaceItems: MarketplaceItem[];
+  nftBadges: Badge[];
   plyBalance: number;
   crtBalance: number;
   units: number;
   badges: Badge[];
-  projects: Project[];
-  marketplaceItems: MarketplaceItem[];
-  fetchPortfolio: () => Promise<void>;
-  contributeToProject: (projectId: string, amount?: number) => Promise<void>;
+  particleRef: React.RefObject<ParticleRef>;
+  connectWallet: () => Promise<void>;
+  contributeProject: (projectId: string) => Promise<void>;
   purchaseItem: (itemId: string) => Promise<void>;
-  mintPLYReward: (amount: number) => Promise<void>;
-  mintNFTBadge: () => Promise<void>;
+  mintPLY: (amount: number) => Promise<void>;
+  mintNFT: () => Promise<void>;
+  disconnectWallet: () => void;
 }
 
-const RecyclingContext = createContext<RecyclingContextProps>({
-  plyBalance: 0,
-  crtBalance: 0,
-  units: 0,
-  badges: [],
-  projects: [],
-  marketplaceItems: [],
-  fetchPortfolio: async () => {},
-  contributeToProject: async () => {},
-  purchaseItem: async () => {},
-  mintPLYReward: async () => {},
-  mintNFTBadge: async () => {},
-});
+const RecyclingContext = createContext<RecyclingContextProps>({} as RecyclingContextProps);
 
 export const RecyclingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { wallet } = useWallet();
-  const connection = new Connection(RPC_URL, "confirmed");
-  const metaplex = Metaplex.make(connection);
+  const particleRef = useRef<ParticleRef>(null);
+  const [wallet, setWallet] = useState<Web3MobileWallet | null>(null);
+  const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
 
-  const [plyBalance, setPlyBalance] = useState(0);
-  const [crtBalance, setCrtBalance] = useState(0);
-  const [units, setUnits] = useState(0);
-  const [badges, setBadges] = useState<Badge[]>([]);
+  const connection = useRef(new Connection(RPC_URL, "confirmed")).current;
+  const metaplex = useRef(Metaplex.make(connection)).current;
+
+  const [user, setUser] = useState<User>({
+    id: "1",
+    name: "Eco User",
+    email: "eco@user.com",
+    level: 1,
+    totalTokens: 0,
+    streakDays: 0,
+    badges: [],
+    createdAt: new Date().toISOString(),
+  });
+
+  const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
+  const [nftBadges, setNFTBadges] = useState<Badge[]>([]);
 
-  /** Fetch SPL balances */
-  const fetchBalances = async () => {
-    if (!wallet?.publicKey) return;
+  const plyBalance = balances.find(b => b.symbol === "PLY")?.amount || 0;
+  const crtBalance = balances.find(b => b.symbol === "CRT")?.amount || 0;
+  const units = user.streakDays; // Example usage
+  const badges = nftBadges;
+
+  /** Wallet Connection */
+  const connectWallet = async () => {
     try {
-      const plyAccount = await getOrCreateAssociatedTokenAccount(connection, wallet.publicKey, PLY_MINT, wallet.publicKey);
-      const plyAmt = Number(plyAccount.amount);
-      const solAmt = await connection.getBalance(wallet.publicKey) / 1e9;
-      setPlyBalance(plyAmt);
-      setCrtBalance(solAmt);
+      const connectedWallet = await transact<Web3MobileWallet>(async w => w);
+      setWallet(connectedWallet);
+      setPublicKey(connectedWallet.publicKey);
+      await fetchBalances();
+      await fetchNFTBadges();
     } catch (err) {
-      console.error("Failed to fetch balances:", err);
+      console.error("Wallet connection failed:", err);
+    }
+  };
+
+  const disconnectWallet = () => {
+    setWallet(null);
+    setPublicKey(null);
+    setBalances([]);
+    setNFTBadges([]);
+  };
+
+  /** Fetch SPL token balances */
+  const fetchBalances = async () => {
+    if (!publicKey) return;
+    try {
+      const plyAta = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
+      const plyAmt = Number(plyAta.amount);
+      const solAmt = (await connection.getBalance(publicKey)) / 1e9;
+      setBalances([
+        { symbol: "PLY", amount: plyAmt, usdValue: 0, change24h: 0 },
+        { symbol: "SOL", amount: solAmt, usdValue: 0, change24h: 0 },
+      ]);
+      setUser(prev => ({ ...prev, totalTokens: plyAmt }));
+    } catch (err) {
+      console.error("Error fetching balances:", err);
     }
   };
 
   /** Fetch NFT badges */
   const fetchNFTBadges = async () => {
-    if (!wallet?.publicKey) return;
+    if (!publicKey) return;
     try {
-      const nfts = await metaplex.nfts().findAllByOwner({ owner: wallet.publicKey });
+      const nfts = await metaplex.nfts().findAllByOwner({ owner: publicKey });
       const candyNFTs = nfts.filter(nft => nft.candyMachine?.equals(CANDY_MACHINE_ID));
-      const fetchedBadges: Badge[] = await Promise.all(
+      const badges: Badge[] = await Promise.all(
         candyNFTs.map(async nft => {
           const metadata = await nft.metadataTask.run();
           return {
             id: nft.address.toBase58(),
             name: nft.name,
             description: metadata?.data?.description || "",
-            icon: metadata?.data?.image || "/badges/default.png",
+            icon: metadata?.data?.image || "/assets/badges/default.png",
             rarity: (metadata?.data?.attributes?.find(a => a.trait_type === "rarity")?.value as any) || "common",
-            unlockedAt: nft.mint ? new Date().toISOString() : undefined,
+            unlockedAt: new Date().toISOString(),
           };
         })
       );
-      setBadges(fetchedBadges);
+      setNFTBadges(badges);
+      setUser(prev => ({ ...prev, badges }));
     } catch (err) {
-      console.error("Failed to fetch NFT badges:", err);
+      console.error("Error fetching NFT badges:", err);
     }
   };
 
-  /** Mint PLY tokens */
-  const mintPLYReward = async (amount: number) => {
-    if (!wallet?.publicKey || !wallet.signTransaction || !wallet.sendTransaction) return;
+  /** Mint PLY */
+  const mintPLY = async (amount: number) => {
+    if (!wallet || !publicKey) return;
     try {
-      const ata = await getOrCreateAssociatedTokenAccount(connection, wallet.publicKey, PLY_MINT, wallet.publicKey);
+      const ata = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
       const tx = new Transaction().add(
-        mintTo({ mint: PLY_MINT, destination: ata.address, amount, authority: wallet.publicKey, programId: TOKEN_PROGRAM_ID })
+        mintTo({
+          mint: PLY_MINT,
+          destination: ata.address,
+          amount,
+          authority: publicKey,
+          programId: TOKEN_PROGRAM_ID,
+        })
       );
       const signedTx = await wallet.signTransaction(tx);
       const txId = await wallet.sendTransaction(signedTx, connection);
       await connection.confirmTransaction(txId, "confirmed");
       await fetchBalances();
+      particleRef.current?.burstCoins({ count: 25, color: "#FFD700" });
     } catch (err) {
-      console.error("Failed to mint PLY reward:", err);
+      console.error("Failed minting PLY:", err);
     }
   };
 
   /** Mint NFT badge */
-  const mintNFTBadge = async () => {
-    if (!wallet?.publicKey) return;
+  const mintNFT = async () => {
+    if (!wallet || !publicKey) return;
     try {
-      // Placeholder: actual Candy Machine mint logic goes here
-      // await metaplex.candyMachines().mint({ candyMachine: CANDY_MACHINE_ID, wallet: wallet.publicKey });
+      // placeholder for candy machine mint logic
+      particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" });
       await fetchNFTBadges();
     } catch (err) {
-      console.error("Failed to mint NFT badge:", err);
+      console.error("Failed minting NFT:", err);
     }
   };
 
   /** Contribute to project */
-  const contributeToProject = async (projectId: string, amount = 100) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, currentAmount: p.currentAmount + amount } : p));
-    await mintPLYReward(amount);
-    await mintNFTBadge();
+  const contributeProject = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+    // Update locally
+    setProjects(prev =>
+      prev.map(p => (p.id === projectId ? { ...p, currentAmount: p.currentAmount + 100, contributors: p.contributors + 1 } : p))
+    );
+    await mintPLY(100);
+    await mintNFT();
   };
 
   /** Purchase marketplace item */
   const purchaseItem = async (itemId: string) => {
-    setMarketplaceItems(prev => prev.map(i => i.id === itemId ? { ...i, available: false } : i));
-    await mintPLYReward(50); // Example: reward PLY
-    await mintNFTBadge();
+    const item = marketplaceItems.find(i => i.id === itemId);
+    if (!item || !item.available) return;
+    // Update locally
+    setMarketplaceItems(prev =>
+      prev.map(i => (i.id === itemId ? { ...i, available: false } : i))
+    );
+    await mintPLY(item.price);
+    await mintNFT();
   };
 
-  /** Mock projects + marketplace items */
+  /** Mock initial projects & marketplace */
   useEffect(() => {
     setProjects([
-      { id: "1", title: "Ocean Cleanup", description: "Remove plastic from oceans", imageUrl: "", targetAmount: 50000, currentAmount: 12300, contributors: 120, category: "cleanup", location: "Pacific", endDate: "2024-12-31", createdBy: "EcoFund", impact: { co2Reduction: 1250, treesPlanted: 0, plasticRemoved: 25000 } },
-      { id: "2", title: "Solar Schools", description: "Install solar panels", imageUrl: "", targetAmount: 75000, currentAmount: 34000, contributors: 85, category: "renewable", location: "Kenya", endDate: "2024-11-15", createdBy: "GreenEnergy", impact: { co2Reduction: 2100, treesPlanted: 500, plasticRemoved: 0 } },
+      { id: "1", title: "Ocean Cleanup", description: "Remove plastic from oceans", currentAmount: 1000, targetAmount: 5000, contributors: 12, category: "cleanup", location: "Pacific Ocean", endDate: "2024-12-31", createdBy: "Ocean Foundation", impact: { co2Reduction: 100, treesPlanted: 0, plasticRemoved: 500 } },
+      { id: "2", title: "Solar School", description: "Install solar panels", currentAmount: 500, targetAmount: 3000, contributors: 5, category: "renewable", location: "Kenya", endDate: "2024-11-30", createdBy: "Green Education", impact: { co2Reduction: 200, treesPlanted: 20, plasticRemoved: 0 } },
     ]);
 
     setMarketplaceItems([
-      { id: "1", title: "Reusable Bottle", description: "Eco bottle", imageUrl: "", price: 25, currency: "USDC", type: "eco-product", seller: "EcoStore", available: true, category: "products" },
-      { id: "2", title: "Carbon Credit Pack", description: "Offset 100kg CO2", imageUrl: "", price: 50, currency: "PLY", type: "carbon-credit", seller: "EcoFund", available: true, category: "carbon-offset" },
+      { id: "1", title: "Reusable Bottle", description: "Eco bottle", imageUrl: "/assets/placeholders/bottle.png", price: 25, currency: "PLY", type: "eco-product", seller: "EcoStore", available: true, category: "products" },
+      { id: "2", title: "Carbon Credit", description: "Offset CO2", imageUrl: "/assets/placeholders/carbon.png", price: 50, currency: "PLY", type: "carbon-credit", seller: "EcoFund", available: true, category: "carbon-offset" },
     ]);
   }, []);
 
-  /** Fetch full portfolio */
-  const fetchPortfolio = async () => {
-    await fetchBalances();
-    await fetchNFTBadges();
-  };
-
-  useEffect(() => {
-    fetchPortfolio();
-  }, [wallet?.publicKey]);
-
   return (
-    <RecyclingContext.Provider value={{
-      plyBalance,
-      crtBalance,
-      units: projects.reduce((a, p) => a + p.currentAmount, 0),
-      badges,
-      projects,
-      marketplaceItems,
-      fetchPortfolio,
-      contributeToProject,
-      purchaseItem,
-      mintPLYReward,
-      mintNFTBadge,
-    }}>
+    <RecyclingContext.Provider
+      value={{
+        user,
+        balances,
+        projects,
+        marketplaceItems,
+        nftBadges,
+        plyBalance,
+        crtBalance,
+        units,
+        badges,
+        particleRef,
+        connectWallet,
+        contributeProject,
+        purchaseItem,
+        mintPLY,
+        mintNFT,
+        disconnectWallet,
+      }}
+    >
       {children}
     </RecyclingContext.Provider>
   );
