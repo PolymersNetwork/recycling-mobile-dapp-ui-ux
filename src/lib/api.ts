@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants';
-import { Unit, Badge, CityMetrics, LeaderboardEntry } from '../types';
-import { User } from '../types';
+import { Unit, Badge, CityMetrics, LeaderboardEntry, User } from '../types';
 
 // === Submit a batch of recycled units to the backend ===
 export const logRecycleBatch = async (user: User, batch: Unit[]) => {
@@ -62,7 +61,7 @@ export const fetchHistoricalTrends = async (cityId: string) => {
   }
 };
 
-// === Optional: fetch projected rewards and badge unlocks per city ===
+// === Fetch projected rewards and badge unlocks per city ===
 export const fetchRewardProjections = async (cityId: string) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/projections/${cityId}`);
