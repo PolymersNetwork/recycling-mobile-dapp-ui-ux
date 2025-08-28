@@ -1,24 +1,14 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Leaf, ArrowRight, Star } from "lucide-react";
+import { Leaf } from "lucide-react";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
-import { programs } from "@metaplex/js"; // for NFT metadata
 import { TOKEN_PROGRAM_ID } from "@/constants";
-
-interface User {
-  name: string;
-  level: number;
-  streakDays: number;
-  totalTokens: number;
-  todayTokens: number;
-  weeklyGoal: number;
-  weeklyProgress: number;
-  wallet: string;
-}
+import { useWallet } from "@/contexts/WalletProvider";
+import { programs } from "@metaplex/js"; // Metaplex NFT metadata
 
 interface NFTBadge {
   name: string;
@@ -30,7 +20,16 @@ interface SPLTokenBalance {
   amount: number;
 }
 
+interface User {
+  name: string;
+  level: number;
+  streakDays: number;
+  totalTokens: number;
+  wallet: string;
+}
+
 export function Home() {
+  const { wallet } = useWallet();
   const [user, setUser] = useState<User | null>(null);
   const [badges, setBadges] = useState<NFTBadge[]>([]);
   const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
@@ -38,56 +37,52 @@ export function Home() {
   const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com");
 
   useEffect(() => {
-    async function fetchUserData() {
-      // Mock fetch user info from backend
-      const wallet = "YOUR_USER_WALLET_PUBLIC_KEY"; // dynamically fetch from auth
-      setUser({
-        name: "Alex",
-        level: 12,
-        streakDays: 7,
-        totalTokens: 2840,
-        todayTokens: 125,
-        weeklyGoal: 500,
-        weeklyProgress: 275,
-        wallet,
-      });
+    if (!wallet?.publicKey) return;
 
-      // Fetch SPL tokens
-      const tokens: SPLTokenBalance[] = [];
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-        new PublicKey(wallet),
-        { programId: TOKEN_PROGRAM_ID }
-      );
-      tokenAccounts.value.forEach((acc) => {
+    const fetchData = async () => {
+      const publicKey = wallet.publicKey;
+
+      // 1️⃣ Fetch SPL tokens
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
+      const tokens: SPLTokenBalance[] = tokenAccounts.value.map(acc => {
         const info = acc.account.data.parsed.info;
         const amount = parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals;
-        tokens.push({ symbol: info.mint, amount });
+        return { symbol: info.mint, amount };
       });
       setSplBalances(tokens);
 
-      // Fetch NFTs via Metaplex
+      // 2️⃣ Fetch NFTs via Metaplex JS
       const metadataProgram = programs.metadata.MetadataProgram;
-      const nfts: NFTBadge[] = [];
       const nftAccounts = await metadataProgram.getProgramAccounts(connection, {
         filters: [
-          { dataSize: 679 }, // adjust based on your NFT standard
-          { memcmp: { offset: 33, bytes: wallet } },
+          { dataSize: 679 }, // adjust to actual metadata size
+          { memcmp: { offset: 33, bytes: publicKey.toBase58() } }, // owner filter
         ],
       });
-      for (let acc of nftAccounts) {
+      const nftBadges: NFTBadge[] = [];
+      for (const acc of nftAccounts) {
         const metadata = await programs.metadata.Metadata.load(connection, acc.pubkey);
-        nfts.push({ name: metadata.data.data.name, image: metadata.data.data.uri });
+        nftBadges.push({ name: metadata.data.data.name, image: metadata.data.data.uri });
       }
-      setBadges(nfts);
-    }
+      setBadges(nftBadges);
 
-    fetchUserData();
-  }, []);
+      // 3️⃣ User stats (compute from SPL balances / NFT count)
+      setUser({
+        name: "Eco Hero",
+        level: Math.min(Math.floor(tokens.reduce((sum, t) => sum + t.amount, 0) / 100), 50),
+        streakDays: nftBadges.length > 0 ? Math.min(nftBadges.length, 7) : 0,
+        totalTokens: tokens.reduce((sum, t) => sum + t.amount, 0),
+        wallet: publicKey.toBase58(),
+      });
+    };
+
+    fetchData();
+  }, [wallet]);
 
   if (!user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-eco-primary/5 pb-20">
       <MobileHeader title={`Good morning, ${user.name}!`} notificationCount={3} />
 
       <main className="px-4 pt-2 pb-6 space-y-5">
