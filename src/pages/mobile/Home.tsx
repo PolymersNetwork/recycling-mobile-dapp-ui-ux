@@ -1,142 +1,141 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
-import { Badge } from "@/components/ui/badge";
-import { Leaf } from "lucide-react";
-import { Connection, PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@/constants";
-import { useWallet } from "@/contexts/WalletProvider";
-import { programs } from "@metaplex/js"; // Metaplex NFT metadata
+import { EcoButton } from "@/components/ui/eco-button";
+import { Progress } from "@/components/ui/progress";
+import { Badge as UiBadge } from "@/components/ui/badge";
+import { Heart } from "lucide-react";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
+import type { Project, Badge, User } from "@/types";
 
-interface NFTBadge {
-  name: string;
-  image: string;
-}
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
 
-interface SPLTokenBalance {
-  symbol: string;
-  amount: number;
-}
+export function HomeScreen() {
+  const { publicKey, signTransaction, sendTransaction } = useWallet();
+  const [user, setUser] = useState<User>({
+    id: "1",
+    email: "eco@user.com",
+    name: "Eco User",
+    level: 3,
+    totalTokens: 1240,
+    streakDays: 5,
+    badges: [],
+    createdAt: new Date().toISOString(),
+  });
+  const [projects, setProjects] = useState<Project[]>([]);
+  const particleRef = useRef<ParticleRef>(null);
 
-interface User {
-  name: string;
-  level: number;
-  streakDays: number;
-  totalTokens: number;
-  wallet: string;
-}
+  const connection = new Connection(RPC_URL, "confirmed");
 
-export function Home() {
-  const { wallet } = useWallet();
-  const [user, setUser] = useState<User | null>(null);
-  const [badges, setBadges] = useState<NFTBadge[]>([]);
-  const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
-
-  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com");
-
+  /** Simulate fetching projects */
   useEffect(() => {
-    if (!wallet?.publicKey) return;
+    const mockProjects: Project[] = [
+      {
+        id: "1",
+        title: "Ocean Cleanup",
+        description: "Removing plastic from oceans and beaches.",
+        imageUrl: "/api/placeholder/400/200",
+        targetAmount: 50000,
+        currentAmount: 32750,
+        contributors: 247,
+        category: "cleanup",
+        location: "Pacific Ocean",
+        endDate: "2024-12-31",
+        createdBy: "Ocean Foundation",
+        impact: { co2Reduction: 1250, treesPlanted: 0, plasticRemoved: 25000 },
+      },
+      {
+        id: "2",
+        title: "Solar School Initiative",
+        description: "Installing solar panels in rural schools.",
+        imageUrl: "/api/placeholder/400/200",
+        targetAmount: 75000,
+        currentAmount: 18500,
+        contributors: 89,
+        category: "renewable",
+        location: "Kenya",
+        endDate: "2024-11-15",
+        createdBy: "Green Education",
+        impact: { co2Reduction: 2100, treesPlanted: 500, plasticRemoved: 0 },
+      },
+    ];
+    setProjects(mockProjects);
+  }, []);
 
-    const fetchData = async () => {
-      const publicKey = wallet.publicKey;
+  /** Mint PLY reward */
+  const mintPLYReward = async (amount: number) => {
+    if (!publicKey || !signTransaction) return;
+    try {
+      const ata = await getOrCreateAssociatedTokenAccount(connection, publicKey, PLY_MINT, publicKey);
+      const tx = new Transaction().add(
+        mintTo({ mint: PLY_MINT, destination: ata.address, amount, authority: publicKey, programId: TOKEN_PROGRAM_ID })
+      );
+      const signedTx = await signTransaction(tx);
+      await sendTransaction(signedTx, connection);
+      particleRef.current?.burstCoins({ count: 20, color: "#FFD700" });
+    } catch (err) {
+      console.error("Failed to mint PLY reward:", err);
+    }
+  };
 
-      // 1️⃣ Fetch SPL tokens
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
-      const tokens: SPLTokenBalance[] = tokenAccounts.value.map(acc => {
-        const info = acc.account.data.parsed.info;
-        const amount = parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals;
-        return { symbol: info.mint, amount };
-      });
-      setSplBalances(tokens);
-
-      // 2️⃣ Fetch NFTs via Metaplex JS
-      const metadataProgram = programs.metadata.MetadataProgram;
-      const nftAccounts = await metadataProgram.getProgramAccounts(connection, {
-        filters: [
-          { dataSize: 679 }, // adjust to actual metadata size
-          { memcmp: { offset: 33, bytes: publicKey.toBase58() } }, // owner filter
-        ],
-      });
-      const nftBadges: NFTBadge[] = [];
-      for (const acc of nftAccounts) {
-        const metadata = await programs.metadata.Metadata.load(connection, acc.pubkey);
-        nftBadges.push({ name: metadata.data.data.name, image: metadata.data.data.uri });
-      }
-      setBadges(nftBadges);
-
-      // 3️⃣ User stats (compute from SPL balances / NFT count)
-      setUser({
-        name: "Eco Hero",
-        level: Math.min(Math.floor(tokens.reduce((sum, t) => sum + t.amount, 0) / 100), 50),
-        streakDays: nftBadges.length > 0 ? Math.min(nftBadges.length, 7) : 0,
-        totalTokens: tokens.reduce((sum, t) => sum + t.amount, 0),
-        wallet: publicKey.toBase58(),
-      });
-    };
-
-    fetchData();
-  }, [wallet]);
-
-  if (!user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  const handleContribute = async (projectId: string) => {
+    setProjects(prev =>
+      prev.map(p => p.id === projectId ? { ...p, currentAmount: p.currentAmount + 100, contributors: p.contributors + 1 } : p)
+    );
+    await mintPLYReward(100);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-eco-primary/5 pb-20">
-      <MobileHeader title={`Good morning, ${user.name}!`} notificationCount={3} />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+      <ParticleEngine ref={particleRef} />
+      <MobileHeader title="Home" />
 
-      <main className="px-4 pt-2 pb-6 space-y-5">
-        {/* Hero Stats */}
-        <EcoCard variant="eco">
-          <EcoCardContent className="p-6 text-center">
-            <Leaf className="w-8 h-8 mx-auto mb-2 text-white" />
-            <h2 className="text-2xl font-bold text-white mb-1">Level {user.level} Eco Warrior</h2>
-            <p className="text-white/80 text-sm mb-4">Making the planet greener, one scan at a time</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-2xl font-bold text-white">{user.totalTokens.toLocaleString()}</div>
-                <div className="text-white/70 text-xs uppercase tracking-wide">Total POLY</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">{user.streakDays}</div>
-                <div className="text-white/70 text-xs uppercase tracking-wide">Day Streak</div>
-              </div>
+      <main className="p-4 space-y-6">
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>{user.name}'s Progress</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="space-y-2">
+            <p>Level {user.level}</p>
+            <Progress value={(user.totalTokens % 500) / 5} className="h-4" />
+            <p>Streak: {user.streakDays} days</p>
+            <Progress value={(user.streakDays % 30) * 3.33} className="h-4" />
+            <p className="text-lg font-bold text-eco-primary mt-1">Tokens: {user.totalTokens}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {user.badges.map(b => (
+                <UiBadge key={b.id} className={`capitalize bg-gray-200 text-gray-700`} title={`Unlocked: ${b.unlockedAt}`}>
+                  {b.name}
+                </UiBadge>
+              ))}
             </div>
           </EcoCardContent>
         </EcoCard>
 
-        {/* SPL Token Balances */}
-        <EcoCard>
-          <EcoCardHeader>
-            <EcoCardTitle>SPL Token Balances</EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent className="flex flex-wrap gap-2">
-            {splBalances.map((t) => (
-              <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
-                {t.symbol}: {t.amount.toFixed(2)}
-              </Badge>
-            ))}
-          </EcoCardContent>
-        </EcoCard>
-
-        {/* NFT Badge Collection */}
-        <EcoCard>
-          <EcoCardHeader>
-            <EcoCardTitle>NFT Badge Collection</EcoCardTitle>
-          </EcoCardHeader>
-          <EcoCardContent className="flex flex-wrap gap-4">
-            {badges.length > 0 ? (
-              badges.map((badge, idx) => (
-                <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden">
-                  <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
-                  <span className="text-xs truncate text-center mt-1">{badge.name}</span>
-                </div>
-              ))
-            ) : (
-              <span className="text-sm text-muted-foreground">No badges earned yet</span>
-            )}
-          </EcoCardContent>
-        </EcoCard>
+        {projects.map(project => (
+          <EcoCard key={project.id}>
+            <div className="relative aspect-[2/1] bg-gray-100 rounded-t-2xl flex items-center justify-center">
+              <p className="text-xs text-muted-foreground">Project Image</p>
+            </div>
+            <EcoCardContent>
+              <EcoCardHeader>
+                <EcoCardTitle>{project.title}</EcoCardTitle>
+                <p>{project.description}</p>
+              </EcoCardHeader>
+              <div className="mt-4 flex justify-between items-center">
+                <p>{project.currentAmount} / {project.targetAmount}</p>
+                <EcoButton variant="eco" onClick={() => handleContribute(project.id)}>
+                  <Heart className="w-4 h-4" /> Contribute
+                </EcoButton>
+              </div>
+            </EcoCardContent>
+          </EcoCard>
+        ))}
       </main>
     </div>
   );
