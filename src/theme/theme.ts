@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { Appearance } from "react-native";
+import { Appearance, AppearancePreferences } from "react-native";
 
 interface Theme {
   mode: "light" | "dark";
@@ -31,7 +31,15 @@ const darkColors = {
   success: "#00C851",
 };
 
-const ThemeContext = createContext<{ colors: Theme["colors"]; mode: Theme["mode"] }>({ colors: lightColors, mode: "light" });
+interface ThemeContextProps {
+  colors: Theme["colors"];
+  mode: Theme["mode"];
+}
+
+const ThemeContext = createContext<ThemeContextProps>({
+  colors: lightColors,
+  mode: "light",
+});
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const colorScheme = Appearance.getColorScheme();
@@ -39,10 +47,12 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const colors = mode === "dark" ? darkColors : lightColors;
 
   useEffect(() => {
-    const listener = Appearance.addChangeListener(({ colorScheme }) => {
-      setMode(colorScheme === "dark" ? "dark" : "light");
-    });
-    return () => listener.remove();
+    const subscription = Appearance.addChangeListener(
+      ({ colorScheme }: AppearancePreferences) => {
+        setMode(colorScheme === "dark" ? "dark" : "light");
+      }
+    );
+    return () => subscription.remove();
   }, []);
 
   return <ThemeContext.Provider value={{ colors, mode }}>{children}</ThemeContext.Provider>;
