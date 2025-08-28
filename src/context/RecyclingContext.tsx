@@ -1,15 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { generateUUID } from '../lib/utils';
-import {
-  fetchCityMetrics,
-  fetchLeaderboard,
-  logRecycleBatch,
-  fetchBadgeStats,
-  fetchHistoricalTrends,
-  fetchRewardProjections,
-} from '../lib/api';
-import { sendRecycleTransaction, verifyWithOracles, releaseEscrow, subscribeLeaderboardUpdates } from '../lib/solana';
-import { calculateBadgeRarity, calculateRewardForecast } from '../lib/forecast';
+import { fetchCityMetrics, fetchLeaderboard, logRecycleBatch, fetchBadgeStats, fetchHistoricalTrends } from '../lib/api';
+import { sendRecycleTransaction, verifyWithOracles, releaseEscrow, subscribeLeaderboard } from '../lib/solana';
+import { calculateRewardForecast, calculateBadgeRarity } from '../lib/forecast';
 
 export interface Unit {
   id: string;
@@ -28,12 +21,11 @@ export interface Badge {
 }
 
 export interface CityMetrics {
-  polyEarned: number;
+  plyEarned: number;
   crtEarned: number;
   batchCount: number;
   leaderboard: any[];
-  historicalTrends?: any[];
-  rewardProjections?: any;
+  trends?: any[];
 }
 
 interface RecyclingContextProps {
@@ -42,12 +34,10 @@ interface RecyclingContextProps {
   badges: Badge[];
   units: Unit[];
   cityMetrics: Record<string, CityMetrics>;
-  leaderboard: any[];
   logRecycleUnit: (unit: Omit<Unit, 'id' | 'scannedAt'>) => void;
   submitBatch: () => Promise<void>;
   refreshCityMetrics: () => Promise<void>;
   refreshBadges: () => Promise<void>;
-  refreshLeaderboard: () => Promise<void>;
 }
 
 const RecyclingContext = createContext<RecyclingContextProps | undefined>(undefined);
@@ -58,116 +48,85 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [cityMetrics, setCityMetrics] = useState<Record<string, CityMetrics>>({});
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
-  // --- Add a scanned unit ---
+  // Add a scanned unit
   const logRecycleUnit = (unit: Omit<Unit, 'id' | 'scannedAt'>) => {
     const newUnit: Unit = { ...unit, id: generateUUID(), scannedAt: new Date() };
     setUnits(prev => [...prev, newUnit]);
   };
 
-  // --- Submit batch: verify, transact, update balances & metrics ---
+  // Submit batch: verify, reward, Solana tx, escrow
   const submitBatch = async () => {
     if (units.length === 0) return;
 
-    try {
-      // 1. Oracle verification (Pyth + Chainlink)
-      const verificationResults = await verifyWithOracles(units);
+    // 1. Verify units via Chainlink + Pyth oracles
+    const verificationResults = await verifyWithOracles(units);
+    const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
+    if (verifiedUnits.length === 0) return;
 
-      // 2. Filter verified units
-      const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
+    // 2. Send transaction to Solana
+    await sendRecycleTransaction(verifiedUnits);
 
-      // 3. Send Solana transaction
-      await sendRecycleTransaction(verifiedUnits);
+    // 3. Release escrow for corporate/NGO donations
+    await releaseEscrow(verifiedUnits);
 
-      // 4. Release corporate/NGO escrow automatically
-      await releaseEscrow(verifiedUnits);
+    // 4. Log batch in backend
+    await logRecycleBatch(verifiedUnits);
 
-      // 5. Log batch in backend
-      await logRecycleBatch({ id: 'current-user-id' }, verifiedUnits);
+    // 5. Update PLY/CRT balances
+    const { ply, crt } = calculateRewardForecast(verifiedUnits.length);
+    setPlyBalance(prev => prev + ply);
+    setCrtBalance(prev => prev + crt);
 
-      // 6. Update balances
-      const polyEarned = verifiedUnits.length;
-      const crtEarned = verifiedUnits.length * 0.5;
-      setPlyBalance(prev => prev + polyEarned);
-      setCrtBalance(prev => prev + crtEarned);
+    // 6. Refresh city metrics and badges
+    await refreshCityMetrics();
+    await refreshBadges();
 
-      // 7. Refresh multi-city metrics
-      await refreshCityMetrics();
-
-      // 8. Refresh badges
-      await refreshBadges();
-
-      // 9. Refresh leaderboard
-      await refreshLeaderboard();
-
-      // 10. Clear scanned units
-      setUnits([]);
-    } catch (err) {
-      console.error('Error submitting batch:', err);
-    }
+    // 7. Clear submitted units
+    setUnits([]);
   };
 
-  // --- Fetch metrics per city with historical trends & projections ---
+  // Refresh city metrics including trends
   const refreshCityMetrics = async () => {
-    try {
-      const metrics = await fetchCityMetrics();
-      const updatedMetrics: Record<string, CityMetrics> = {};
-
-      for (const city in metrics) {
-        const historicalTrends = await fetchHistoricalTrends(city);
-        const rewardProjections = await fetchRewardProjections(city);
-        updatedMetrics[city] = {
-          ...metrics[city],
-          historicalTrends,
-          rewardProjections,
-        };
-      }
-
-      setCityMetrics(updatedMetrics);
-    } catch (err) {
-      console.error('Error refreshing city metrics:', err);
+    const cities = await fetchCityMetrics();
+    const metrics: Record<string, CityMetrics> = {};
+    for (const city of cities) {
+      const trends = await fetchHistoricalTrends(city.id);
+      metrics[city.name] = { ...city, trends };
     }
+    setCityMetrics(metrics);
   };
 
-  // --- Fetch and update NFT badges ---
+  // Refresh badge stats and calculate rarity
   const refreshBadges = async () => {
-    try {
-      const badgeData = await fetchBadgeStats();
-      const updatedBadges = badgeData.map(b => ({
-        ...b,
-        rarity: calculateBadgeRarity(b),
-      }));
-      setBadges(updatedBadges);
-    } catch (err) {
-      console.error('Error refreshing badges:', err);
-    }
+    const badgeData = await fetchBadgeStats();
+    const updatedBadges = badgeData.map(badge => ({
+      ...badge,
+      rarity: calculateBadgeRarity(badge),
+    }));
+    setBadges(updatedBadges);
   };
 
-  // --- Fetch global leaderboard ---
-  const refreshLeaderboard = async () => {
-    try {
-      const data = await fetchLeaderboard();
-      setLeaderboard(data);
-    } catch (err) {
-      console.error('Error refreshing leaderboard:', err);
-    }
-  };
-
-  // --- Subscribe to WebSocket leaderboard updates ---
+  // Subscribe to real-time leaderboard via WebSocket
   useEffect(() => {
-    const unsubscribe = subscribeLeaderboardUpdates((updatedLeaderboard) => {
-      setLeaderboard(updatedLeaderboard);
+    const ws = subscribeLeaderboard((update) => {
+      setCityMetrics(prev => {
+        const updated = { ...prev };
+        update.forEach(entry => {
+          if (updated[entry.city]) {
+            updated[entry.city].leaderboard = entry.leaderboard;
+          }
+        });
+        return updated;
+      });
     });
-
-    return () => unsubscribe();
+    return () => ws.close();
   }, []);
 
-  // --- Initial load ---
+  // Load initial metrics and badges
   useEffect(() => {
     refreshCityMetrics();
     refreshBadges();
-    refreshLeaderboard();
   }, []);
 
   return (
@@ -178,12 +137,10 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
         badges,
         units,
         cityMetrics,
-        leaderboard,
         logRecycleUnit,
         submitBatch,
         refreshCityMetrics,
         refreshBadges,
-        refreshLeaderboard,
       }}
     >
       {children}
@@ -193,6 +150,6 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
 
 export const useRecycling = () => {
   const context = useContext(RecyclingContext);
-  if (!context) throw new Error('useRecycling must be used within RecyclingProvider');
+  if (!context) throw new Error("useRecycling must be used within RecyclingProvider");
   return context;
 };
