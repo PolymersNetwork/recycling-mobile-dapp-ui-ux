@@ -27,6 +27,7 @@ interface Badge {
 }
 
 interface CityMetrics {
+  cityId: string;
   polyEarned: number;
   crtEarned: number;
   batchCount: number;
@@ -71,6 +72,8 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
 
     // 2. Filter verified units
     const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
+
+    if (verifiedUnits.length === 0) return;
 
     // 3. Send transaction to Solana program
     await sendRecycleTransaction(verifiedUnits);
@@ -119,6 +122,7 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
     setBadges(updatedBadges);
   };
 
+  // Load initial data
   useEffect(() => {
     refreshCityMetrics();
     refreshBadges();
