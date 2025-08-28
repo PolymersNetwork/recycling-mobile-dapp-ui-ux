@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle, EcoCardDescription } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@/types";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
 import { TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
+import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 
 interface NFTBadge {
   name: string;
@@ -33,7 +35,9 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
   const [badges, setBadges] = useState<NFTBadge[]>([]);
   const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [animatedPly, setAnimatedPly] = useState(0);
 
+  const particleRef = useRef<ParticleRef>(null);
   const { toast } = useToast();
 
   const connection = new Connection(
@@ -59,6 +63,11 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
         };
       });
       setSplBalances(tokens);
+      const plyBalance = tokens.find(t => t.symbol === plyMint.toBase58())?.amount || 0;
+      if (plyBalance > animatedPly) {
+        setAnimatedPly(plyBalance);
+        particleRef.current?.burstCoins({ count: 50, color: "#FFD700" });
+      }
 
       const nftAccounts = await metaplex.nfts().findAllByOwner({ owner: wallet });
       const nfts: NFTBadge[] = nftAccounts.map(nft => ({
@@ -132,9 +141,11 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
       // Mint SPL token reward (100 PLY per contribution)
       const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, plyMint, wallet);
       await mintTo(connection, walletKeypair, plyMint, ata.address, walletKeypair, 100);
+      particleRef.current?.burstCoins({ count: 30, color: "#FFD700" });
 
       // Mint NFT badge via Candy Machine
       await metaplex.candyMachines().mint({ candyMachine: candyMachineId, payer: walletKeypair });
+      particleRef.current?.sparkleBadge({ count: 20, color: "#FFD700" });
 
       // Refresh balances & badges
       await fetchOnChainData();
@@ -163,7 +174,8 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20 relative">
+      <ParticleEngine ref={particleRef} />
       <MobileHeader title="Eco Projects" />
 
       <main className="p-4 space-y-6">
@@ -190,7 +202,7 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
           <EcoCardContent className="flex flex-wrap gap-2">
             {splBalances.length ? splBalances.map(t => (
               <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
-                {t.symbol}: {t.amount.toFixed(2)}
+                {t.symbol}: <AnimatedCounter value={t.amount} className="inline" />
               </Badge>
             )) : <span className="text-sm text-muted-foreground">No SPL tokens yet</span>}
           </EcoCardContent>
@@ -203,7 +215,11 @@ export function Projects({ walletKeypair, candyMachineId, plyMint }: ProjectsPro
           </EcoCardHeader>
           <EcoCardContent className="flex flex-wrap gap-4">
             {badges.length ? badges.map((badge, idx) => (
-              <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden">
+              <div
+                key={idx}
+                className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden transform transition-transform duration-300 hover:scale-110"
+                onMouseEnter={() => particleRef.current?.sparkleBadge({ count: 15, color: "#FFD700" })}
+              >
                 <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
                 <span className="text-xs truncate text-center mt-1">{badge.name}</span>
               </div>
