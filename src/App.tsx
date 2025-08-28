@@ -1,68 +1,49 @@
 import React from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { ThemeProvider } from "@/theme/theme";
+import { WalletProvider } from "@/contexts/WalletContext";
 import { RecyclingProvider } from "@/contexts/RecyclingContext";
-import { WalletProvider } from "@/contexts/WalletProvider";
 
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-
-import { BottomNav } from "@/components/mobile/BottomNav";
-import { MobileHeader } from "@/components/mobile/MobileHeader";
-
-import { Start } from "@/pages/Start";
+import { Start } from "@/pages/mobile/Start";
 import { Home } from "@/pages/mobile/Home";
-import { Scan } from "@/pages/mobile/Scan";
 import { RecycleScreen } from "@/pages/mobile/RecycleScreen";
+import { Marketplace } from "@/pages/mobile/Marketplace";
+import { Profile } from "@/pages/mobile/Profile";
 import { Projects } from "@/pages/mobile/Projects";
 import { Portfolio } from "@/pages/mobile/Portfolio";
-import { Profile } from "@/pages/mobile/Profile";
-import { Marketplace } from "@/pages/mobile/Marketplace";
-import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+import { Toaster } from "@/components/ui/toaster";
+import { ParticleEngine } from "@/components/ui/ParticleEngine";
 
-const App: React.FC = () => {
+const Stack = createNativeStackNavigator();
+
+export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          {/* Unified Wallet + Recycling Providers */}
-          <WalletProvider>
-            <RecyclingProvider>
-              <BrowserRouter>
-                <div className="relative min-h-screen pb-16 bg-background dark:bg-background-dark">
-                  {/* Mobile Header */}
-                  <MobileHeader title="Polymers" showNotifications showSettings />
-
-                  {/* App Routes */}
-                  <Routes>
-                    <Route path="/start" element={<Start />} />
-                    <Route path="/" element={<Home />} />
-                    <Route path="/scan" element={<Scan />} />
-                    <Route path="/recycle" element={<RecycleScreen />} />
-                    <Route path="/projects" element={<Projects />} />
-                    <Route path="/marketplace" element={<Marketplace />} />
-                    <Route path="/portfolio" element={<Portfolio />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-
-                  {/* Persistent Bottom Navigation */}
-                  <BottomNav />
-                </div>
-              </BrowserRouter>
-            </RecyclingProvider>
-          </WalletProvider>
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <WalletProvider>
+        <RecyclingProvider>
+          <NavigationContainer>
+            <ParticleEngine />
+            <Toaster />
+            <Stack.Navigator
+              initialRouteName="Start"
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="Start" component={Start} />
+              <Stack.Screen name="Home" component={Home} />
+              <Stack.Screen name="Recycle" component={RecycleScreen} />
+              <Stack.Screen name="Marketplace" component={Marketplace} />
+              <Stack.Screen name="Profile" component={Profile} />
+              <Stack.Screen name="Projects" component={Projects} />
+              <Stack.Screen name="Portfolio" component={Portfolio} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </RecyclingProvider>
+      </WalletProvider>
+    </SafeAreaProvider>
   );
-};
-
-export default App;
+}
