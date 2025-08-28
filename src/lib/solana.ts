@@ -2,97 +2,91 @@ import {
   Connection,
   PublicKey,
   Transaction,
+  TransactionInstruction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import { AnchorProvider, Program, Idl } from '@project-serum/anchor';
-import { EventEmitter } from 'events';
-import { ESCROW_PROGRAM_ID, RECYCLE_PROGRAM_ID, SOLANA_NETWORK } from '../constants';
-import { getPythPrice, getChainlinkPrice } from './oracles';
+import { PythConnection } from '@pythnetwork/client';
+import { getChainlinkPriceFeed } from '@chainlink/contracts';
+import { API_BASE_URL } from '../constants';
+import axios from 'axios';
+import { Unit } from '../context/RecyclingContext';
 
-// Solana connection & provider
-const connection = new Connection(SOLANA_NETWORK, 'confirmed');
-const provider = AnchorProvider.local(SOLANA_NETWORK);
-const program = new Program<Idl>({} as Idl, RECYCLE_PROGRAM_ID, provider);
+const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID!);
 
-// Event emitter for real-time updates
-export const leaderboardEmitter = new EventEmitter();
+const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
-/**
- * Submit a batch of recycling units to Solana program
- */
-export const sendRecycleTransaction = async (
-  userPublicKey: PublicKey,
-  batchUnits: Array<{ id: string; location: string; weight: number }>
-) => {
+// === Pyth Oracle Verification ===
+export const getPythPrice = async (productPubKey: string): Promise<number> => {
+  const pyth = new PythConnection(connection);
+  await pyth.connect();
+  const priceData = await pyth.getPrice(new PublicKey(productPubKey));
+  return priceData?.price ?? 0;
+};
+
+// === Chainlink Oracle Verification ===
+export const getChainlinkPrice = async (feedAddress: string): Promise<number> => {
+  return await getChainlinkPriceFeed(feedAddress, connection);
+};
+
+// === Verify a batch of units with on-chain oracles ===
+export const verifyWithOracles = async (units: Unit[]): Promise<boolean[]> => {
+  const results: boolean[] = [];
+  for (const unit of units) {
+    try {
+      // Replace these with your actual product feed keys per unit
+      const pythPrice = await getPythPrice(unit.city); // placeholder
+      const chainlinkPrice = await getChainlinkPrice(unit.city); // placeholder
+
+      // Example verification logic
+      results.push(pythPrice > 0 && chainlinkPrice > 0);
+    } catch {
+      results.push(false);
+    }
+  }
+  return results;
+};
+
+// === Send Recycle Transaction ===
+export const sendRecycleTransaction = async (units: Unit[]) => {
   const tx = new Transaction();
-  // Add instructions for each unit
-  batchUnits.forEach((unit) => {
-    tx.add(
-      program.instruction.logRecycling(unit.weight, {
-        accounts: {
-          user: userPublicKey,
-          recycleRecord: new PublicKey(unit.id),
-          systemProgram: PublicKey.default,
-        },
-      })
-    );
+  const instructions: TransactionInstruction[] = units.map(unit => {
+    return new TransactionInstruction({
+      keys: [
+        { pubkey: new PublicKey(unit.city), isSigner: false, isWritable: true },
+      ],
+      programId: PROGRAM_ID,
+      data: Buffer.from(JSON.stringify(unit)), // adapt to your program schema
+    });
   });
 
-  // Send transaction
-  const txSig = await sendAndConfirmTransaction(connection, tx, []);
-  return txSig;
+  tx.add(...instructions);
+  const signature = await sendAndConfirmTransaction(connection, tx, []); // add signer(s)
+  console.log('Recycle transaction confirmed:', signature);
+  return signature;
 };
 
-/**
- * Verify a single recycling unit with Pyth + Chainlink oracles
- */
-export const verifyUnitOracle = async (unitId: string) => {
-  const pythPrice = await getPythPrice(unitId);
-  const chainlinkPrice = await getChainlinkPrice(unitId);
-
-  // Example verification logic
-  return Math.abs(pythPrice - chainlinkPrice) < 0.001;
+// === Release Escrow for Corporate/NGO donations ===
+export const releaseEscrow = async (units: Unit[]) => {
+  try {
+    await axios.post(`${API_BASE_URL}/escrow/release`, { units });
+    console.log('Escrow released for verified batch.');
+  } catch (error) {
+    console.error('Failed to release escrow:', error);
+  }
 };
 
-/**
- * Release escrow for a batch once verification completes
- */
-export const releaseEscrow = async (
-  escrowAccount: PublicKey,
-  recipient: PublicKey
-) => {
-  const tx = new Transaction();
-  tx.add(
-    program.instruction.releaseEscrow({
-      accounts: {
-        escrowAccount,
-        recipient,
-        systemProgram: PublicKey.default,
-      },
-    })
-  );
-  const sig = await sendAndConfirmTransaction(connection, tx, []);
-  return sig;
-};
+// === WebSocket subscription for real-time leaderboard updates ===
+export const subscribeLeaderboard = (callback: (data: any[]) => void) => {
+  const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/leaderboard/ws`);
 
-/**
- * Subscribe to real-time leaderboard updates via WebSocket
- */
-export const subscribeLeaderboard = (callback: (data: any) => void) => {
-  const subId = connection.onAccountChange(
-    new PublicKey(RECYCLE_PROGRAM_ID),
-    (accountInfo) => {
-      const leaderboardData = accountInfo.data; // parse as needed
-      callback(leaderboardData);
-      leaderboardEmitter.emit('update', leaderboardData);
-    }
-  );
-  return subId;
-};
+  ws.onopen = () => console.log('Leaderboard WS connected');
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    callback(data);
+  };
+  ws.onclose = () => console.log('Leaderboard WS disconnected');
+  ws.onerror = (err) => console.error('Leaderboard WS error:', err);
 
-/**
- * Unsubscribe leaderboard updates
- */
-export const unsubscribeLeaderboard = (subId: number) => {
-  connection.removeAccountChangeListener(subId);
+  return ws; // allows caller to close subscription later
 };
