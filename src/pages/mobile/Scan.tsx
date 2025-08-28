@@ -4,41 +4,24 @@ import { EcoButton } from "@/components/ui/eco-button";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, MapPin } from "lucide-react";
+import { useCamera } from "@/hooks/useCamera";
 import { useToast } from "@/hooks/use-toast";
 
 export function Scan() {
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<any>(null);
+  const { isScanning, scanResult, capturePhoto, uploadFromGallery, clearResult } = useCamera();
   const { toast } = useToast();
 
   const handleScan = async () => {
-    setIsScanning(true);
-    
-    // Simulate camera capture and AI processing
-    setTimeout(() => {
-      const mockResult = {
-        plasticType: 'PET Bottle',
-        confidence: 0.94,
-        tokensEarned: 25,
-        verified: true,
-        location: 'San Francisco, CA'
-      };
-      setScanResult(mockResult);
-      setIsScanning(false);
-      
-      toast({
-        title: "Scan Successful!",
-        description: `+${mockResult.tokensEarned} POLY tokens earned`,
-      });
-    }, 3000);
+    try {
+      await capturePhoto();
+    } catch (error) {
+      console.error('Scan failed:', error);
+    }
   };
 
   const handleUpload = () => {
-    toast({
-      title: "Upload Feature",
-      description: "Gallery upload coming soon!",
-    });
+    uploadFromGallery();
   };
 
   return (
@@ -131,7 +114,7 @@ export function Scan() {
                   <span className="text-sm text-muted-foreground">Tokens Earned</span>
                   <div className="flex items-center space-x-1">
                     <Zap className="w-4 h-4 text-eco-success" />
-                    <span className="font-bold text-eco-success">+{scanResult.tokensEarned} POLY</span>
+                    <span className="font-bold text-eco-success">+{scanResult.tokensEarned} PLY</span>
                   </div>
                 </div>
                 
@@ -161,7 +144,7 @@ export function Scan() {
               
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">2 more scans to complete daily challenge</p>
-                <p className="text-xs text-eco-primary font-medium">+50 POLY bonus</p>
+                <p className="text-xs text-eco-primary font-medium">+50 PLY bonus</p>
               </div>
             </div>
           </EcoCardContent>

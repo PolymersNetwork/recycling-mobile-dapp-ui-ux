@@ -18,11 +18,12 @@ export const WALLET_TYPES = {
 } as const;
 
 export const TOKEN_METADATA = {
-  POLY: {
-    symbol: 'POLY',
+  PLY: {
+    symbol: 'PLY',
     name: 'Polymer Token',
     decimals: 9,
     color: '#1B5E20',
+    mintAddress: 'PLYKdaCUgxTUw6rSjWbgSN97Qtecb6Fy6SazWf1tvAC',
   },
   SOL: {
     symbol: 'SOL',
