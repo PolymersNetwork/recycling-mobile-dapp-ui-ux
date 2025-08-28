@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { ThemeProvider } from "@/theme/theme";
 import { RecyclingProvider } from "@/contexts/RecyclingContext";
+import { WalletProvider } from "@/contexts/WalletProvider";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,29 +32,33 @@ const App: React.FC = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <RecyclingProvider>
-            <BrowserRouter>
-              <div className="relative min-h-screen pb-16 bg-background dark:bg-background-dark">
-                {/* MobileHeader can dynamically update based on route */}
-                <MobileHeader title="Polymers" showNotifications showSettings />
+          {/* Unified Wallet + Recycling Providers */}
+          <WalletProvider>
+            <RecyclingProvider>
+              <BrowserRouter>
+                <div className="relative min-h-screen pb-16 bg-background dark:bg-background-dark">
+                  {/* Mobile Header */}
+                  <MobileHeader title="Polymers" showNotifications showSettings />
 
-                <Routes>
-                  <Route path="/start" element={<Start />} />
-                  <Route path="/" element={<Home />} />
-                  <Route path="/scan" element={<Scan />} />
-                  <Route path="/recycle" element={<RecycleScreen />} />
-                  <Route path="/projects" element={<Projects />} />
-                  <Route path="/marketplace" element={<Marketplace />} />
-                  <Route path="/portfolio" element={<Portfolio />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                  {/* App Routes */}
+                  <Routes>
+                    <Route path="/start" element={<Start />} />
+                    <Route path="/" element={<Home />} />
+                    <Route path="/scan" element={<Scan />} />
+                    <Route path="/recycle" element={<RecycleScreen />} />
+                    <Route path="/projects" element={<Projects />} />
+                    <Route path="/marketplace" element={<Marketplace />} />
+                    <Route path="/portfolio" element={<Portfolio />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
 
-                {/* Persistent Bottom Navigation */}
-                <BottomNav />
-              </div>
-            </BrowserRouter>
-          </RecyclingProvider>
+                  {/* Persistent Bottom Navigation */}
+                  <BottomNav />
+                </div>
+              </BrowserRouter>
+            </RecyclingProvider>
+          </WalletProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
