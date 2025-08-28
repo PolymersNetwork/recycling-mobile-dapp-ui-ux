@@ -1,61 +1,148 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle, EcoCardDescription } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Heart, MapPin, Users, Zap, Clock, TrendingUp } from "lucide-react";
+import { Heart, MapPin, Users, Zap, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@/types";
+import { Connection, PublicKey, Transaction, SystemProgram } from "@solana/web3.js";
+import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
+import { TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 
+interface NFTBadge {
+  name: string;
+  image: string;
+}
+
+interface SPLTokenBalance {
+  symbol: string;
+  amount: number;
+}
+
+// Realistic eco project mock data
 const mockProjects: Project[] = [
   {
     id: "1",
-    title: "Ocean Plastic Cleanup",
-    description: "Removing plastic waste from ocean waters and beaches to protect marine life.",
+    title: "Pacific Ocean Cleanup",
+    description: "Removing plastic and waste from the Pacific Ocean to protect marine life.",
     imageUrl: "/api/placeholder/400/200",
-    targetAmount: 50000,
-    currentAmount: 32750,
-    contributors: 247,
+    targetAmount: 100000,
+    currentAmount: 75630,
+    contributors: 324,
     category: "cleanup",
     location: "Pacific Ocean",
-    endDate: "2024-12-31",
+    endDate: "2025-01-31",
     createdBy: "Ocean Foundation",
-    impact: {
-      co2Reduction: 1250,
-      treesPlanted: 0,
-      plasticRemoved: 25000
-    }
+    impact: { co2Reduction: 2100, treesPlanted: 0, plasticRemoved: 50000 }
   },
   {
-    id: "2", 
-    title: "Solar School Initiative",
-    description: "Installing solar panels in rural schools to provide clean energy education.",
+    id: "2",
+    title: "Solar Schools Africa",
+    description: "Providing solar energy to schools in rural Africa for sustainable education.",
     imageUrl: "/api/placeholder/400/200",
-    targetAmount: 75000,
-    currentAmount: 18500,
-    contributors: 89,
+    targetAmount: 80000,
+    currentAmount: 43500,
+    contributors: 142,
     category: "renewable",
     location: "Kenya",
-    endDate: "2024-11-15",
+    endDate: "2024-12-15",
     createdBy: "Green Education",
-    impact: {
-      co2Reduction: 2100,
-      treesPlanted: 500,
-      plasticRemoved: 0
-    }
+    impact: { co2Reduction: 1800, treesPlanted: 400, plasticRemoved: 0 }
+  },
+  {
+    id: "3",
+    title: "Urban Tree Planting",
+    description: "Planting trees in urban areas to reduce CO₂ and improve air quality.",
+    imageUrl: "/api/placeholder/400/200",
+    targetAmount: 60000,
+    currentAmount: 31250,
+    contributors: 198,
+    category: "conservation",
+    location: "New York, USA",
+    endDate: "2024-11-30",
+    createdBy: "Green City Org",
+    impact: { co2Reduction: 900, treesPlanted: 250, plasticRemoved: 0 }
   }
 ];
 
-export function Projects() {
+export function Projects({ walletKeypair }: { walletKeypair: any }) {
   const [filter, setFilter] = useState<string>("all");
+  const [badges, setBadges] = useState<NFTBadge[]>([]);
+  const [splBalances, setSplBalances] = useState<SPLTokenBalance[]>([]);
   const { toast } = useToast();
 
-  const handleContribute = (projectId: string) => {
-    toast({
-      title: "Contribution Successful!",
-      description: "Thank you for supporting this eco project!",
-    });
+  const connection = new Connection(
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+    "confirmed"
+  );
+
+  const metaplex = Metaplex.make(connection)
+    .use(keypairIdentity(walletKeypair))
+    .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }));
+
+  const wallet = walletKeypair.publicKey;
+
+  // Fetch user's on-chain SPL balances and NFTs
+  const fetchOnChainData = async () => {
+    try {
+      // SPL tokens
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(wallet, { programId: TOKEN_PROGRAM_ID });
+      const tokens: SPLTokenBalance[] = tokenAccounts.value.map(acc => {
+        const info = acc.account.data.parsed.info;
+        return {
+          symbol: info.mint,
+          amount: parseInt(info.tokenAmount.amount) / 10 ** info.tokenAmount.decimals
+        };
+      });
+      setSplBalances(tokens);
+
+      // NFTs
+      const nftAccounts = await metaplex.nfts().findAllByOwner({ owner: wallet });
+      const nfts: NFTBadge[] = nftAccounts.map(nft => ({
+        name: nft.name,
+        image: nft.metadataUri
+      }));
+      setBadges(nfts);
+    } catch (err) {
+      console.error("Failed to fetch on-chain data:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOnChainData();
+  }, []);
+
+  const handleContribute = async (project: Project) => {
+    try {
+      toast({ title: "Contribution in progress...", description: "Minting rewards on-chain." });
+
+      // 1️⃣ Mint SPL token reward proportional to contribution
+      const rewardAmount = Math.round((project.currentAmount / project.targetAmount) * 100); // Example logic
+      const rewardMint = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
+      const ata = await getOrCreateAssociatedTokenAccount(connection, walletKeypair, rewardMint, wallet);
+      await mintTo(connection, walletKeypair, rewardMint, ata.address, walletKeypair, rewardAmount);
+
+      // 2️⃣ Mint NFT badge for milestone
+      const nft = await metaplex.nfts().create({
+        uri: "https://example.com/nft-metadata.json", // Replace with actual metadata
+        name: `Eco Badge: ${project.title}`,
+        sellerFeeBasisPoints: 0,
+        maxSupply: 1
+      });
+
+      // 3️⃣ Refresh on-chain balances and badges
+      await fetchOnChainData();
+
+      toast({
+        title: "Contribution Successful!",
+        description: `${rewardAmount} PLY minted + NFT Badge ${nft.name} issued!`
+      });
+    } catch (err) {
+      console.error("Contribution failed:", err);
+      toast({ title: "Contribution Failed", description: "Please try again." });
+    }
   };
 
   const getTimeLeft = (endDate: string) => {
@@ -69,7 +156,7 @@ export function Projects() {
   const getCategoryColor = (category: Project['category']) => {
     const colors = {
       cleanup: "bg-blue-500/10 text-blue-700 border-blue-200",
-      renewable: "bg-yellow-500/10 text-yellow-700 border-yellow-200", 
+      renewable: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
       conservation: "bg-green-500/10 text-green-700 border-green-200",
       education: "bg-purple-500/10 text-purple-700 border-purple-200"
     };
@@ -79,11 +166,11 @@ export function Projects() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
       <MobileHeader title="Eco Projects" />
-      
+
       <main className="p-4 space-y-6">
         {/* Filter Tabs */}
         <div className="flex space-x-2 overflow-x-auto pb-2">
-          {["all", "cleanup", "renewable", "conservation", "education"].map((category) => (
+          {["all", "cleanup", "renewable", "conservation", "education"].map(category => (
             <EcoButton
               key={category}
               variant={filter === category ? "eco" : "eco-outline"}
@@ -96,128 +183,57 @@ export function Projects() {
           ))}
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-3 gap-3">
-          <EcoCard padding="sm" variant="eco">
-            <div className="text-center">
-              <TrendingUp className="w-5 h-5 text-eco-primary mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">Total Raised</p>
-              <p className="text-sm font-bold text-eco-primary">$51.2K</p>
-            </div>
-          </EcoCard>
-          
-          <EcoCard padding="sm" variant="eco">
-            <div className="text-center">
-              <Users className="w-5 h-5 text-eco-success mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">Contributors</p>
-              <p className="text-sm font-bold text-eco-success">336</p>
-            </div>
-          </EcoCard>
-          
-          <EcoCard padding="sm" variant="eco">
-            <div className="text-center">
-              <Zap className="w-5 h-5 text-eco-warning mx-auto mb-1" />
-              <p className="text-xs text-muted-foreground">My Impact</p>
-              <p className="text-sm font-bold text-eco-warning">1.2K</p>
-            </div>
-          </EcoCard>
-        </div>
+        {/* SPL Token Balances */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Your SPL Tokens</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="flex flex-wrap gap-2">
+            {splBalances.length ? splBalances.map(t => (
+              <Badge key={t.symbol} className="bg-eco-primary/10 text-eco-primary border-eco-primary/20">
+                {t.symbol}: {t.amount.toFixed(2)}
+              </Badge>
+            )) : <span className="text-sm text-muted-foreground">No SPL tokens yet</span>}
+          </EcoCardContent>
+        </EcoCard>
+
+        {/* NFT Badges */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Your NFT Badges</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="flex flex-wrap gap-4">
+            {badges.length ? badges.map((badge, idx) => (
+              <div key={idx} className="w-20 h-20 bg-muted/10 rounded-lg flex flex-col items-center justify-center overflow-hidden">
+                <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
+                <span className="text-xs truncate text-center mt-1">{badge.name}</span>
+              </div>
+            )) : <span className="text-sm text-muted-foreground">No badges earned yet</span>}
+          </EcoCardContent>
+        </EcoCard>
 
         {/* Project List */}
         <div className="space-y-4">
-          {mockProjects.map((project) => (
+          {mockProjects
+            .filter(p => filter === "all" || p.category === filter)
+            .map(project => (
             <EcoCard key={project.id} variant="elevated">
-              <div className="relative">
-                <div className="aspect-[2/1] bg-gradient-to-br from-eco-primary-light/20 to-eco-primary/10 rounded-t-2xl flex items-center justify-center">
-                  <div className="text-center space-y-2">
-                    <div className="w-16 h-16 bg-eco-primary/20 rounded-full flex items-center justify-center mx-auto">
-                      <Heart className="w-8 h-8 text-eco-primary" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Project Image</p>
-                  </div>
-                </div>
-                
-                <Badge 
-                  className={`absolute top-3 right-3 ${getCategoryColor(project.category)}`}
-                >
-                  {project.category}
-                </Badge>
-              </div>
-              
               <EcoCardContent>
                 <EcoCardHeader>
-                  <EcoCardTitle className="text-lg">{project.title}</EcoCardTitle>
+                  <EcoCardTitle>{project.title}</EcoCardTitle>
                   <EcoCardDescription>{project.description}</EcoCardDescription>
                 </EcoCardHeader>
-                
-                <div className="space-y-4 mt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Progress</span>
-                    <span className="font-semibold">
-                      ${project.currentAmount.toLocaleString()}/{project.targetAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  
-                  <Progress 
-                    value={(project.currentAmount / project.targetAmount) * 100} 
-                    className="h-2"
-                  />
-                  
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-3 h-3" />
-                      <span>{project.contributors} contributors</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{getTimeLeft(project.endDate)}</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="w-3 h-3" />
-                      <span>{project.location}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Impact Stats */}
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
-                    {project.impact.co2Reduction > 0 && (
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground">CO₂ Reduced</p>
-                        <p className="text-sm font-semibold text-eco-success">
-                          {project.impact.co2Reduction}kg
-                        </p>
-                      </div>
-                    )}
-                    
-                    {project.impact.treesPlanted > 0 && (
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground">Trees</p>
-                        <p className="text-sm font-semibold text-eco-primary">
-                          {project.impact.treesPlanted}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {project.impact.plasticRemoved > 0 && (
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground">Plastic (kg)</p>
-                        <p className="text-sm font-semibold text-eco-warning">
-                          {project.impact.plasticRemoved}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <EcoButton 
-                    variant="eco" 
-                    className="w-full mt-4"
-                    onClick={() => handleContribute(project.id)}
-                  >
-                    <Heart className="w-4 h-4" />
+
+                <div className="space-y-2 mt-2">
+                  <Progress value={(project.currentAmount / project.targetAmount) * 100} className="h-2" />
+                  <EcoButton variant="eco" className="w-full" onClick={() => handleContribute(project)}>
                     Contribute Now
                   </EcoButton>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>{project.contributors} contributors</span>
+                    <span>{getTimeLeft(project.endDate)}</span>
+                    <span>{project.location}</span>
+                  </div>
                 </div>
               </EcoCardContent>
             </EcoCard>
