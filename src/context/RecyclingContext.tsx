@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { generateUUID } from '../lib/utils';
-import { fetchCityMetrics, fetchLeaderboard, logRecycleBatch, fetchBadgeStats, fetchHistoricalTrends } from '../lib/api';
-import { sendRecycleTransaction, verifyWithOracles, releaseEscrow, subscribeLeaderboard } from '../lib/solana';
+import { 
+  fetchCityMetrics, 
+  fetchLeaderboard, 
+  logRecycleBatch, 
+  fetchBadgeStats,
+  fetchHistoricalTrends
+} from '../lib/api';
+import { sendRecycleTransaction, verifyWithOracles, releaseEscrow } from '../lib/solana';
 import { calculateRewardForecast, calculateBadgeRarity } from '../lib/forecast';
 
-export interface Unit {
+interface Unit {
   id: string;
   city: string;
   lat: number;
@@ -12,7 +18,7 @@ export interface Unit {
   scannedAt: Date;
 }
 
-export interface Badge {
+interface Badge {
   id: string;
   name: string;
   unlocked: boolean;
@@ -20,12 +26,13 @@ export interface Badge {
   imageUrl: string;
 }
 
-export interface CityMetrics {
-  plyEarned: number;
+interface CityMetrics {
+  polyEarned: number;
   crtEarned: number;
   batchCount: number;
   leaderboard: any[];
-  trends?: any[];
+  historicalTrends: any[];
+  forecast?: { ply: number; crt: number };
 }
 
 interface RecyclingContextProps {
@@ -49,55 +56,60 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [cityMetrics, setCityMetrics] = useState<Record<string, CityMetrics>>({});
 
-  // Add a scanned unit
+  // Add a single scanned unit
   const logRecycleUnit = (unit: Omit<Unit, 'id' | 'scannedAt'>) => {
     const newUnit: Unit = { ...unit, id: generateUUID(), scannedAt: new Date() };
     setUnits(prev => [...prev, newUnit]);
   };
 
-  // Submit batch: verify, reward, Solana tx, escrow
+  // Submit batch: verify units, update balances, trigger Solana tx & escrow
   const submitBatch = async () => {
     if (units.length === 0) return;
 
     // 1. Verify units via Chainlink + Pyth oracles
     const verificationResults = await verifyWithOracles(units);
-    const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
-    if (verifiedUnits.length === 0) return;
 
-    // 2. Send transaction to Solana
+    // 2. Filter verified units
+    const verifiedUnits = units.filter((_, idx) => verificationResults[idx]);
+
+    // 3. Send transaction to Solana program
     await sendRecycleTransaction(verifiedUnits);
 
-    // 3. Release escrow for corporate/NGO donations
+    // 4. Release any escrow for corporate/NGO donations
     await releaseEscrow(verifiedUnits);
 
-    // 4. Log batch in backend
+    // 5. Log batch in backend
     await logRecycleBatch(verifiedUnits);
 
-    // 5. Update PLY/CRT balances
-    const { ply, crt } = calculateRewardForecast(verifiedUnits.length);
-    setPlyBalance(prev => prev + ply);
-    setCrtBalance(prev => prev + crt);
+    // 6. Update POLY/CRT balances
+    const polyEarned = verifiedUnits.length; // 1:1 for simplicity
+    const crtEarned = verifiedUnits.length * 0.5;
+    setPlyBalance(prev => prev + polyEarned);
+    setCrtBalance(prev => prev + crtEarned);
 
-    // 6. Refresh city metrics and badges
+    // 7. Update city metrics
     await refreshCityMetrics();
+
+    // 8. Refresh badge stats
     await refreshBadges();
 
-    // 7. Clear submitted units
+    // 9. Clear units after submission
     setUnits([]);
   };
 
-  // Refresh city metrics including trends
   const refreshCityMetrics = async () => {
-    const cities = await fetchCityMetrics();
-    const metrics: Record<string, CityMetrics> = {};
-    for (const city of cities) {
-      const trends = await fetchHistoricalTrends(city.id);
-      metrics[city.name] = { ...city, trends };
+    const metricsArray = await fetchCityMetrics();
+    const metricsRecord: Record<string, CityMetrics> = {};
+
+    for (const metric of metricsArray) {
+      const historicalTrends = await fetchHistoricalTrends(metric.cityId);
+      const forecast = calculateRewardForecast(metric, historicalTrends);
+      metricsRecord[metric.cityId] = { ...metric, historicalTrends, forecast };
     }
-    setCityMetrics(metrics);
+
+    setCityMetrics(metricsRecord);
   };
 
-  // Refresh badge stats and calculate rarity
   const refreshBadges = async () => {
     const badgeData = await fetchBadgeStats();
     const updatedBadges = badgeData.map(badge => ({
@@ -107,23 +119,6 @@ export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
     setBadges(updatedBadges);
   };
 
-  // Subscribe to real-time leaderboard via WebSocket
-  useEffect(() => {
-    const ws = subscribeLeaderboard((update) => {
-      setCityMetrics(prev => {
-        const updated = { ...prev };
-        update.forEach(entry => {
-          if (updated[entry.city]) {
-            updated[entry.city].leaderboard = entry.leaderboard;
-          }
-        });
-        return updated;
-      });
-    });
-    return () => ws.close();
-  }, []);
-
-  // Load initial metrics and badges
   useEffect(() => {
     refreshCityMetrics();
     refreshBadges();
