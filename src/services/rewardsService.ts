@@ -63,6 +63,11 @@ class RewardsService {
   calculateReferralBonus(referrals: number): number {
     return referrals * 10; // 10 PLY per referral
   }
+
+  async addRewards(userWallet: string, rewards: { PLY?: number; CRT?: number; USDC?: number }): Promise<void> {
+    // Mock implementation - in production, this would update Supabase
+    console.log('Adding rewards:', userWallet, rewards);
+  }
 }
 
 export const rewardsService = new RewardsService();

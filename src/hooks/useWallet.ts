@@ -5,8 +5,10 @@ export function useWallet() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const connectWallet = async (type: 'phantom' | 'solflare' | 'backpack' | 'sui') => {
+    setIsConnecting(true);
     setLoading(true);
     try {
       // Mock wallet connection - replace with actual wallet adapter
@@ -28,6 +30,7 @@ export function useWallet() {
       console.error('Failed to connect wallet:', error);
     } finally {
       setLoading(false);
+      setIsConnecting(false);
     }
   };
 
@@ -56,6 +59,7 @@ export function useWallet() {
     wallet,
     balances,
     loading,
+    isConnecting,
     connectWallet,
     disconnectWallet,
     refreshBalances

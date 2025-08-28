@@ -1,4 +1,5 @@
 export const ROUTES = {
+  START: '/start',
   HOME: '/',
   SCAN: '/scan',
   PROJECTS: '/projects',
@@ -8,6 +9,8 @@ export const ROUTES = {
   PROJECT_DETAIL: '/projects/:id',
   SUBMISSION_DETAIL: '/submissions/:id',
   MARKETPLACE_ITEM: '/marketplace/:id',
+  RECYCLE: '/recycle',
+  LEADERBOARD: '/leaderboard',
 } as const;
 
 export const WALLET_TYPES = {
@@ -61,6 +64,24 @@ export const REWARD_THRESHOLDS = {
   MONTHLY_SCAN: 200,
   HIGH_CONFIDENCE: 0.8,
   VERIFIED_SUBMISSION: 25,
+  RECYCLE_PLY_PER_KG: 10,
+  RECYCLE_CRT_PER_KG: 0.5,
+} as const;
+
+export const NFT_BADGES = {
+  FIRST_KG: 'first_kg',
+  TEN_ITEMS: 'ten_items',
+  ECO_WARRIOR: 'eco_warrior',
+  STREAK_HERO: 'streak_hero',
+  COMMUNITY_LEADER: 'community_leader',
+  CARBON_SAVER: 'carbon_saver',
+} as const;
+
+export const SCAN_TYPES = {
+  CAMERA: 'camera',
+  QR_CODE: 'qr',
+  NFC: 'nfc',
+  SOLANA_PAY: 'solana_pay',
 } as const;
 
 export const PROJECT_CATEGORIES = [

@@ -4,19 +4,33 @@ import { EcoButton } from "@/components/ui/eco-button";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, MapPin } from "lucide-react";
+import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, MapPin, QrCode, Wifi } from "lucide-react";
 import { useCamera } from "@/hooks/useCamera";
 import { useToast } from "@/hooks/use-toast";
+import { eventsService } from "@/services/events";
 
 export function Scan() {
-  const { isScanning, scanResult, capturePhoto, uploadFromGallery, clearResult } = useCamera();
+  const { isScanning, scanResult, cameraType, capturePhoto, scanQRCode, scanNFC, uploadFromGallery, clearResult } = useCamera();
   const { toast } = useToast();
 
-  const handleScan = async () => {
+  const handleScan = async (type: 'camera' | 'qr' | 'nfc' = 'camera') => {
     try {
-      await capturePhoto();
+      eventsService.trackRecycleStart(type);
+      
+      switch (type) {
+        case 'camera':
+          await capturePhoto();
+          break;
+        case 'qr':
+          await scanQRCode();
+          break;
+        case 'nfc':
+          await scanNFC();
+          break;
+      }
     } catch (error) {
       console.error('Scan failed:', error);
+      eventsService.trackError('scan_failed', { type, error: error.message });
     }
   };
 
@@ -37,8 +51,16 @@ export function Scan() {
                 <div className="text-center space-y-4">
                   <Loader2 className="w-12 h-12 text-eco-primary animate-spin mx-auto" />
                   <div className="space-y-2">
-                    <p className="text-lg font-semibold text-foreground">Analyzing...</p>
-                    <p className="text-sm text-muted-foreground">AI is detecting plastic type</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {cameraType === 'camera' && 'Analyzing Photo...'}
+                      {cameraType === 'qr' && 'Reading QR Code...'}
+                      {cameraType === 'nfc' && 'Processing NFC...'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {cameraType === 'camera' && 'AI is detecting plastic type'}
+                      {cameraType === 'qr' && 'Connecting to smart bin'}
+                      {cameraType === 'nfc' && 'Verifying smart collection point'}
+                    </p>
                     <Progress value={75} className="w-48 mx-auto" />
                   </div>
                 </div>
@@ -63,15 +85,37 @@ export function Scan() {
           </div>
           
           <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-4">
               <EcoButton 
                 variant="eco" 
-                onClick={handleScan}
+                onClick={() => handleScan('camera')}
                 disabled={isScanning}
                 className="h-14"
               >
                 <Camera className="w-5 h-5" />
-                {isScanning ? "Scanning..." : "Scan Now"}
+                {isScanning && cameraType === 'camera' ? "Scanning..." : "Camera"}
+              </EcoButton>
+              
+              <EcoButton 
+                variant="eco-outline" 
+                onClick={() => handleScan('qr')}
+                disabled={isScanning}
+                className="h-14"
+              >
+                <QrCode className="w-5 h-5" />
+                {isScanning && cameraType === 'qr' ? "Reading..." : "QR Code"}
+              </EcoButton>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <EcoButton 
+                variant="eco-outline" 
+                onClick={() => handleScan('nfc')}
+                disabled={isScanning}
+                className="h-14"
+              >
+                <Wifi className="w-5 h-5" />
+                {isScanning && cameraType === 'nfc' ? "Processing..." : "NFC Scan"}
               </EcoButton>
               
               <EcoButton 
