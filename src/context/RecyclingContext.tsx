@@ -1,172 +1,74 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Metaplex, keypairIdentity, bundlrStorage } from "@metaplex-foundation/js";
+"use client";
 
-import { useWallet } from "@/hooks/useWallet";
-import { useProjects } from "@/hooks/useProjects";
-import { useMarketplace } from "@/hooks/useMarketplace";
-import { generateUUID } from "@/lib/utils";
-import { fetchCityMetrics, fetchBadgeStats, fetchHistoricalTrends } from "@/lib/api";
-import { calculateRewardForecast, calculateBadgeRarity } from "@/lib/forecast";
-import type { Badge as BadgeType, Project, MarketplaceItem } from "@/types";
+import React, { useRef, useState } from "react";
+import { View, ScrollView } from "react-native";
+import { MobileHeader } from "@/components/mobile/MobileHeader";
+import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
+import { EcoButton } from "@/components/ui/eco-button";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { Badge } from "@/components/ui/badge";
+import { ParticleEngine, triggerParticles } from "@/components/ParticleEngine";
+import { useRecycling } from "@/contexts/RecyclingContext";
 
-interface Unit {
-  id: string;
-  city: string;
-  lat: number;
-  lng: number;
-  scannedAt: Date;
-}
+export const RecycleScreen = () => {
+  const { plyBalance, crtBalance, badges, logRecycleUnit, submitBatch } = useRecycling();
+  const counterRefs = { ply: useRef(null), crt: useRef(null) };
+  const [loading, setLoading] = useState(false);
 
-interface CityMetrics {
-  polyEarned: number;
-  crtEarned: number;
-  batchCount: number;
-  leaderboard: any[];
-  historicalTrends: any[];
-  forecast?: { ply: number; crt: number };
-}
+  const handleScan = async () => {
+    logRecycleUnit({ city: "Local City", lat: 0, lng: 0 });
+    triggerParticles(counterRefs.ply.current, "coin");
+    triggerParticles(counterRefs.crt.current, "coin");
 
-interface RecyclingContextProps {
-  wallet: ReturnType<typeof useWallet>["wallet"];
-  plyBalance: number;
-  crtBalance: number;
-  badges: BadgeType[];
-  units: Unit[];
-  cityMetrics: Record<string, CityMetrics>;
-  logRecycleUnit: (unit: Omit<Unit, "id" | "scannedAt">) => void;
-  submitBatch: () => Promise<void>;
-  refreshCityMetrics: () => Promise<void>;
-  refreshBadges: () => Promise<void>;
-  projects: Project[];
-  loadingProjects: boolean;
-  contributeToProject: (projectId: string, amount: number, currency: "PLY" | "USDC" | "SOL") => Promise<void>;
-  marketplace: MarketplaceItem[];
-  loadingMarketplace: boolean;
-  refreshMarketplace: () => Promise<void>;
-}
-
-const RecyclingContext = createContext<RecyclingContextProps | undefined>(undefined);
-
-export const RecyclingProvider = ({ children }: { children: ReactNode }) => {
-  const { wallet, balances, connectWallet, disconnectWallet, refreshBalances } = useWallet();
-  const { projects, loading: loadingProjects, fetchProjects, contributeToProject, createProject } = useProjects();
-  const { marketplace, loading: loadingMarketplace, fetchMarketplace } = useMarketplace();
-
-  const [plyBalance, setPlyBalance] = useState(0);
-  const [crtBalance, setCrtBalance] = useState(0);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [badges, setBadges] = useState<BadgeType[]>([]);
-  const [cityMetrics, setCityMetrics] = useState<Record<string, CityMetrics>>({});
-
-  const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
-  const metaplex = wallet?.keypair
-    ? Metaplex.make(connection)
-        .use(keypairIdentity(wallet.keypair))
-        .use(bundlrStorage({ address: "https://devnet.bundlr.network", providerUrl: connection.rpcEndpoint }))
-    : null;
-
-  const PLY_MINT = new PublicKey(process.env.NEXT_PUBLIC_PLY_MINT!);
-  const CANDY_MACHINE_ID = new PublicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID!);
-
-  // Log a single scanned unit
-  const logRecycleUnit = (unit: Omit<Unit, "id" | "scannedAt">) => {
-    const newUnit: Unit = { ...unit, id: generateUUID(), scannedAt: new Date() };
-    setUnits((prev) => [...prev, newUnit]);
+    setLoading(true);
+    await submitBatch();
+    setLoading(false);
   };
-
-  // Submit batch: mint SPL + NFT rewards on-chain
-  const submitBatch = async () => {
-    if (!wallet?.publicKey || !metaplex || units.length === 0) return;
-
-    const verifiedUnits = units; // mock verification
-    const polyEarned = verifiedUnits.length;
-    const crtEarned = verifiedUnits.length * 0.5;
-
-    // Mint PLY tokens to wallet
-    try {
-      const ata = await getOrCreateAssociatedTokenAccount(connection, wallet.keypair, PLY_MINT, wallet.publicKey);
-      await mintTo(connection, wallet.keypair, PLY_MINT, ata.address, wallet.keypair, BigInt(polyEarned));
-      setPlyBalance((prev) => prev + polyEarned);
-    } catch (err) {
-      console.error("Failed to mint PLY:", err);
-    }
-
-    // Mint NFT badges for milestone
-    try {
-      await metaplex.nfts().mintFromCandyMachine({ candyMachine: CANDY_MACHINE_ID });
-      await refreshBadges();
-    } catch (err) {
-      console.error("Failed to mint NFT badge:", err);
-    }
-
-    setCrtBalance((prev) => prev + crtEarned);
-    setUnits([]); // clear batch after submission
-    await refreshCityMetrics();
-  };
-
-  const refreshCityMetrics = async () => {
-    const metricsArray = await fetchCityMetrics();
-    const metricsRecord: Record<string, CityMetrics> = {};
-
-    for (const metric of metricsArray) {
-      const historicalTrends = await fetchHistoricalTrends(metric.cityId);
-      const forecast = calculateRewardForecast(metric, historicalTrends);
-      metricsRecord[metric.cityId] = { ...metric, historicalTrends, forecast };
-    }
-
-    setCityMetrics(metricsRecord);
-  };
-
-  const refreshBadges = async () => {
-    const badgeData = await fetchBadgeStats();
-    const updatedBadges = badgeData.map((badge) => ({
-      ...badge,
-      rarity: calculateBadgeRarity(badge),
-    }));
-    setBadges(updatedBadges);
-  };
-
-  const refreshMarketplace = async () => {
-    await fetchMarketplace();
-  };
-
-  useEffect(() => {
-    refreshCityMetrics();
-    refreshBadges();
-    fetchProjects();
-    fetchMarketplace();
-  }, []);
 
   return (
-    <RecyclingContext.Provider
-      value={{
-        wallet,
-        plyBalance,
-        crtBalance,
-        badges,
-        units,
-        cityMetrics,
-        logRecycleUnit,
-        submitBatch,
-        refreshCityMetrics,
-        refreshBadges,
-        projects,
-        loadingProjects,
-        contributeToProject,
-        marketplace,
-        loadingMarketplace,
-        refreshMarketplace,
-      }}
-    >
-      {children}
-    </RecyclingContext.Provider>
-  );
-};
+    <View style={{ flex: 1, backgroundColor: "#f0f4f8" }}>
+      <ParticleEngine />
+      <MobileHeader title="Recycle Dashboard" />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 50 }}>
+        {/* PLY / CRT Counters */}
+        <EcoCard>
+          <EcoCardContent style={{ flexDirection: "row", justifyContent: "space-around" }}>
+            <View ref={counterRefs.ply}>
+              <AnimatedCounter value={plyBalance} suffix=" PLY" />
+            </View>
+            <View ref={counterRefs.crt}>
+              <AnimatedCounter value={crtBalance} suffix=" CRT" />
+            </View>
+          </EcoCardContent>
+        </EcoCard>
 
-export const useRecycling = () => {
-  const context = useContext(RecyclingContext);
-  if (!context) throw new Error("useRecycling must be used within RecyclingProvider");
-  return context;
+        {/* Scan Button */}
+        <EcoCard>
+          <EcoCardContent>
+            <EcoButton onPress={handleScan} disabled={loading}>
+              {loading ? "Processing..." : "Scan & Contribute"}
+            </EcoButton>
+          </EcoCardContent>
+        </EcoCard>
+
+        {/* Badge List */}
+        <EcoCard>
+          <EcoCardHeader>
+            <EcoCardTitle>Your NFT Badges</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {badges.map((badge) => (
+              <Badge
+                key={badge.id}
+                variant={badge.unlocked ? "default" : "secondary"}
+                onPress={(e) => triggerParticles(e.currentTarget, badge.rarity)}
+              >
+                {badge.name}
+              </Badge>
+            ))}
+          </EcoCardContent>
+        </EcoCard>
+      </ScrollView>
+    </View>
+  );
 };
