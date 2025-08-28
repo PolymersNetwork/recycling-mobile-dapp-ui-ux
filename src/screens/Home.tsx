@@ -4,28 +4,31 @@ import { useEffect, useRef } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge as UiBadge } from "@/components/ui/badge";
-import { Heart, Zap, Trophy, Target } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Heart } from "lucide-react";
 import { EcoButton } from "@/components/ui/eco-button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { usePortfolio } from "@/hooks/usePortfolio";
 import { ParticleEngine, ParticleRef } from "@/components/ui/ParticleEngine";
 import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
-import { usePortfolio } from "@/hooks/usePortfolio";
 
 export default function Home() {
+  const particleRef = useRef<ParticleRef>(null);
   const {
-    balances,
-    nftBadges,
-    user,
+    plyBalance,
+    units,
+    badges,
     projects,
+    loading,
     contributeToProject,
   } = usePortfolio();
 
-  const particleRef = useRef<ParticleRef>(null);
-
   const handleContribute = async (projectId: string) => {
-    await contributeToProject(projectId, 100); // Contribute 100 PLY
-    particleRef.current?.burstCoins({ count: 30, color: "#FFD700" }); // Gold coins
-    particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" }); // NFT badge sparkle
+    await contributeToProject(projectId);
+
+    // Animate token achievement
+    particleRef.current?.burstCoins({ count: 30, color: "#FFD700" });
+    particleRef.current?.sparkleBadge({ count: 15, color: "#FFAA00" });
   };
 
   const getCategoryColor = (category: string) => {
@@ -45,32 +48,26 @@ export default function Home() {
 
       <main className="p-4 space-y-6">
         {/* User Progress */}
-        {user && (
-          <EcoCard>
-            <EcoCardHeader className="flex justify-between items-center">
-              <EcoCardTitle>{user.name}'s Progress</EcoCardTitle>
-            </EcoCardHeader>
-            <EcoCardContent className="space-y-2">
-              <p>Level {user.level}</p>
-              <AnimatedCounter value={user.totalTokens} className="text-lg font-bold" />
-              <p>Streak: {user.streakDays} days</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {user.badges.map(b => (
-                  <UiBadge
-                    key={b.id}
-                    className={`capitalize ${b.rarity === "legendary" ? "bg-yellow-500/20 text-yellow-600" :
-                      b.rarity === "epic" ? "bg-purple-500/20 text-purple-600" :
-                      b.rarity === "rare" ? "bg-blue-500/20 text-blue-600" :
-                        "bg-gray-200 text-gray-700"}`}
-                    title={`Unlocked: ${b.unlockedAt}`}
-                  >
-                    {b.name}
-                  </UiBadge>
-                ))}
-              </div>
-            </EcoCardContent>
-          </EcoCard>
-        )}
+        <EcoCard>
+          <EcoCardHeader className="flex justify-between items-center">
+            <EcoCardTitle>Your Progress</EcoCardTitle>
+          </EcoCardHeader>
+          <EcoCardContent className="space-y-2">
+            <p>PLY Earned</p>
+            <Progress value={plyBalance % 500} className="h-4" />
+            <p>Units: <AnimatedCounter value={units} /></p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {badges.map(b => (
+                <UiBadge key={b.id} className={`capitalize ${b.rarity === "legendary" ? "bg-yellow-500/20 text-yellow-600" :
+                                                   b.rarity === "epic" ? "bg-purple-500/20 text-purple-600" :
+                                                   b.rarity === "rare" ? "bg-blue-500/20 text-blue-600" :
+                                                   "bg-gray-200 text-gray-700"}`}>
+                  {b.name}
+                </UiBadge>
+              ))}
+            </div>
+          </EcoCardContent>
+        </EcoCard>
 
         {/* Projects */}
         <div className="space-y-4">
@@ -80,7 +77,9 @@ export default function Home() {
                 <div className="aspect-[2/1] bg-gradient-to-br from-eco-primary-light/20 to-eco-primary/10 rounded-t-2xl flex items-center justify-center">
                   <p className="text-xs text-muted-foreground">Project Image</p>
                 </div>
-                <UiBadge className={`absolute top-3 right-3 ${getCategoryColor(project.category)}`}>{project.category}</UiBadge>
+                <UiBadge className={`absolute top-3 right-3 ${getCategoryColor(project.category)}`}>
+                  {project.category}
+                </UiBadge>
               </div>
               <EcoCardContent>
                 <EcoCardHeader>
@@ -97,46 +96,6 @@ export default function Home() {
             </EcoCard>
           ))}
         </div>
-
-        {/* Balances & NFT Badges Tabs */}
-        <Tabs defaultValue="balances" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="balances">Balances</TabsTrigger>
-            <TabsTrigger value="badges">NFT Badges</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="balances" className="space-y-3">
-            {balances.map(b => (
-              <EcoCard key={b.symbol} variant="elevated">
-                <EcoCardContent className="flex items-center space-x-3">
-                  <img src={`https://cryptoicons.cc/64/color/${b.symbol.toLowerCase()}.png`} className="w-10 h-10 rounded-full" alt={b.symbol} />
-                  <div>
-                    <p className="font-semibold">{b.symbol}</p>
-                    <p className="text-sm text-muted-foreground">{b.amount.toLocaleString()}</p>
-                  </div>
-                </EcoCardContent>
-              </EcoCard>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="badges" className="grid grid-cols-2 gap-4">
-            {nftBadges.map(b => (
-              <EcoCard key={b.id} variant="elevated">
-                <EcoCardContent className="flex flex-col items-center space-y-2">
-                  <img src={b.icon} className="w-16 h-16 rounded-full" alt={b.name} />
-                  <p className="font-medium text-center">{b.name}</p>
-                  {b.unlockedAt && <p className="text-xs text-muted-foreground">{new Date(b.unlockedAt).toLocaleDateString()}</p>}
-                  <UiBadge className={`capitalize ${b.rarity === "legendary" ? "bg-yellow-500/20 text-yellow-600" :
-                    b.rarity === "epic" ? "bg-purple-500/20 text-purple-600" :
-                      b.rarity === "rare" ? "bg-blue-500/20 text-blue-600" :
-                        "bg-gray-200 text-gray-700"}`}>
-                    {b.rarity}
-                  </UiBadge>
-                </EcoCardContent>
-              </EcoCard>
-            ))}
-          </TabsContent>
-        </Tabs>
       </main>
     </div>
   );
