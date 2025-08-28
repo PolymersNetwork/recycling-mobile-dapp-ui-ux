@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Confetti from "react-confetti";
 import useSound from "use-sound";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
@@ -6,7 +6,7 @@ import { EcoButton } from "@/components/ui/eco-button";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Camera, Upload, Zap, CheckCircle, AlertCircle, Loader2, QrCode, Wifi } from "lucide-react";
+import { Camera, Upload, Zap, CheckCircle, Loader2, QrCode, Wifi } from "lucide-react";
 import { useCamera } from "@/hooks/useCamera";
 import { useToast } from "@/hooks/use-toast";
 import { useRecycling } from "@/contexts/RecyclingContext";
@@ -15,41 +15,36 @@ import { useMarketplace } from "@/hooks/useMarketplace";
 import scanSuccessSound from "@/assets/sounds/scan-success.mp3";
 
 export function Scan() {
-  const { isScanning, scanResult, cameraType, capturePhoto, scanQRCode, scanNFC, uploadFromGallery, clearResult } = useCamera();
+  const { isScanning, cameraType, capturePhoto, scanQRCode, scanNFC, uploadFromGallery, scanResult, clearResult } = useCamera();
   const { toast } = useToast();
-  const { plyBalance, crtBalance, units, logRecycleUnit, submitBatch, badges, cityMetrics } = useRecycling();
+  const { plyBalance, crtBalance, units, logRecycleUnit, badges, cityMetrics } = useRecycling();
   const { projects, contributeToProject } = useProjects();
   const { marketplaceItems } = useMarketplace();
   const [play] = useSound(scanSuccessSound);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const handleScan = async (type: 'camera' | 'qr' | 'nfc' = 'camera') => {
+  const handleScan = async (type: "camera" | "qr" | "nfc" = "camera") => {
     try {
       let result;
       switch (type) {
-        case 'camera':
+        case "camera":
           result = await capturePhoto();
           break;
-        case 'qr':
+        case "qr":
           result = await scanQRCode();
           break;
-        case 'nfc':
+        case "nfc":
           result = await scanNFC();
           break;
       }
 
       if (result?.verified) {
-        logRecycleUnit({
-          city: result.location || "Unknown",
-          lat: 0,
-          lng: 0
-        });
+        logRecycleUnit({ city: result.location || "Unknown", lat: 0, lng: 0 });
         play();
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
       toast({ title: "Scan failed", description: "Please try again", variant: "destructive" });
     }
   };
@@ -61,9 +56,8 @@ export function Scan() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-24 relative">
       <MobileHeader title="Scan Plastic" />
-
       {showConfetti && <Confetti recycle={false} numberOfPieces={200} />}
-      
+
       <main className="p-4 space-y-6">
         {/* Scan Panel */}
         <EcoCard variant="elevated" padding="none">
@@ -81,16 +75,15 @@ export function Scan() {
               </div>
             )}
           </div>
-
           <div className="p-4 grid grid-cols-2 gap-3">
-            <EcoButton onClick={() => handleScan('camera')} disabled={isScanning} className="h-14">
-              <Camera className="w-5 h-5" /> {isScanning && cameraType === 'camera' ? 'Scanning...' : 'Camera'}
+            <EcoButton onClick={() => handleScan("camera")} disabled={isScanning} className="h-14">
+              <Camera className="w-5 h-5" /> {isScanning && cameraType === "camera" ? "Scanning..." : "Camera"}
             </EcoButton>
-            <EcoButton onClick={() => handleScan('qr')} disabled={isScanning} className="h-14">
-              <QrCode className="w-5 h-5" /> {isScanning && cameraType === 'qr' ? 'Reading...' : 'QR Code'}
+            <EcoButton onClick={() => handleScan("qr")} disabled={isScanning} className="h-14">
+              <QrCode className="w-5 h-5" /> {isScanning && cameraType === "qr" ? "Reading..." : "QR Code"}
             </EcoButton>
-            <EcoButton onClick={() => handleScan('nfc')} disabled={isScanning} className="h-14">
-              <Wifi className="w-5 h-5" /> {isScanning && cameraType === 'nfc' ? 'Processing...' : 'NFC Scan'}
+            <EcoButton onClick={() => handleScan("nfc")} disabled={isScanning} className="h-14">
+              <Wifi className="w-5 h-5" /> {isScanning && cameraType === "nfc" ? "Processing..." : "NFC Scan"}
             </EcoButton>
             <EcoButton onClick={handleUpload} className="h-14">
               <Upload className="w-5 h-5" /> Upload
@@ -122,15 +115,15 @@ export function Scan() {
               </div>
               <div className="flex justify-between items-center">
                 <span>Status</span>
-                <Badge variant={scanResult.verified ? 'default' : 'secondary'}>
-                  {scanResult.verified ? 'Verified' : 'Pending'}
+                <Badge variant={scanResult.verified ? "default" : "secondary"}>
+                  {scanResult.verified ? "Verified" : "Pending"}
                 </Badge>
               </div>
             </EcoCardContent>
           </EcoCard>
         )}
 
-        {/* Multi-city Dashboard */}
+        {/* City Metrics */}
         <EcoCard>
           <EcoCardHeader>
             <EcoCardTitle>City Metrics & Projections</EcoCardTitle>
@@ -140,7 +133,9 @@ export function Scan() {
               <div key={city} className="border-b border-muted py-2">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">{city}</span>
-                  <span>PLY: {metric.forecast?.ply || 0}, CRT: {metric.forecast?.crt || 0}</span>
+                  <span>
+                    PLY: {metric.forecast?.ply || 0}, CRT: {metric.forecast?.crt || 0}
+                  </span>
                 </div>
                 <Progress value={Math.min((metric.polyEarned / (metric.forecast?.ply || 1)) * 100, 100)} />
               </div>
@@ -154,8 +149,8 @@ export function Scan() {
             <EcoCardTitle>NFT Badges</EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent className="flex flex-wrap gap-2">
-            {badges.map(badge => (
-              <Badge key={badge.id} variant={badge.unlocked ? 'default' : 'secondary'}>
+            {badges.map((badge) => (
+              <Badge key={badge.id} variant={badge.unlocked ? "default" : "secondary"}>
                 {badge.name} ({badge.rarity})
               </Badge>
             ))}
@@ -168,10 +163,10 @@ export function Scan() {
             <EcoCardTitle>Active Projects</EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent className="space-y-2">
-            {projects.map(p => (
+            {projects.map((p) => (
               <div key={p.id} className="flex justify-between items-center">
                 <span>{p.title}</span>
-                <EcoButton size="sm" onClick={() => contributeToProject(p.id, 10, 'PLY')}>
+                <EcoButton size="sm" onClick={() => contributeToProject(p.id, 10, "PLY")}>
                   +10 PLY
                 </EcoButton>
               </div>
@@ -185,10 +180,12 @@ export function Scan() {
             <EcoCardTitle>Marketplace Items</EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent className="space-y-2">
-            {marketplaceItems.map(item => (
+            {marketplaceItems.map((item) => (
               <div key={item.id} className="flex justify-between items-center">
                 <span>{item.title}</span>
-                <span className="font-semibold">{item.price} {item.currency}</span>
+                <span className="font-semibold">
+                  {item.price} {item.currency}
+                </span>
               </div>
             ))}
           </EcoCardContent>
