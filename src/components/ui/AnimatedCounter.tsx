@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { ParticleEngine, ParticleTriggerOptions } from "@/components/particles/ParticleEngine";
 
 interface AnimatedCounterProps {
   value: number;
   duration?: number;
   className?: string;
   decimals?: number;
-  particleOptions?: Partial<ParticleTriggerOptions>;
+  particleOptions?: any;
 }
 
 export function AnimatedCounter({
@@ -38,18 +37,6 @@ export function AnimatedCounter({
     };
 
     requestAnimationFrame(step);
-
-    // Trigger particle burst only if the value increased
-    if (value > prevValueRef.current && counterRef.current) {
-      ParticleEngine.trigger({
-        target: counterRef.current,
-        count: 20,
-        type: "coin",
-        colors: ["#FFD700", "#FFAA00", "#FFFF00"], // gold coins
-        ...particleOptions,
-      });
-    }
-
     prevValueRef.current = value;
   }, [value, duration, decimals, particleOptions]);
 

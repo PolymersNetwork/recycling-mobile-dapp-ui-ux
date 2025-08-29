@@ -1,56 +1,32 @@
-import "react-native-gesture-handler";
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { WalletProvider } from "@/contexts/WalletContext"; // Your Mobile Wallet Adapter context
-import { RecyclingProvider } from "@/contexts/RecyclingContext"; // Portfolio + gamification context
-import { Home } from "@/screens/Home";
-import { Marketplace } from "@/screens/Marketplace";
-import { Profile } from "@/screens/Profile";
-import { Settings } from "@/screens/Settings";
-import { Ionicons } from "@expo/vector-icons";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { WalletProvider } from './contexts/WalletContext';
+import { RecyclingProvider } from './contexts/RecyclingContext';
+import { ParticleCanvas } from './components/particles/ParticleEngine';
+import { Dashboard } from './pages/Dashboard';
+import { Marketplace } from './pages/Marketplace';
+import { Profile } from './pages/Profile';
+import { NotFound } from './pages/NotFound';
+import './App.css';
 
-const Tab = createBottomTabNavigator();
-
-export default function App() {
+function App() {
   return (
     <WalletProvider>
       <RecyclingProvider>
-        <NavigationContainer>
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              headerShown: false,
-              tabBarIcon: ({ color, size }) => {
-                let iconName: string = "";
-
-                switch (route.name) {
-                  case "Home":
-                    iconName = "home-outline";
-                    break;
-                  case "Marketplace":
-                    iconName = "cart-outline";
-                    break;
-                  case "Profile":
-                    iconName = "person-outline";
-                    break;
-                  case "Settings":
-                    iconName = "settings-outline";
-                    break;
-                }
-
-                return <Ionicons name={iconName as any} size={size} color={color} />;
-              },
-              tabBarActiveTintColor: "#00C48C",
-              tabBarInactiveTintColor: "gray",
-            })}
-          >
-            <Tab.Screen name="Home" component={Home} />
-            <Tab.Screen name="Marketplace" component={Marketplace} />
-            <Tab.Screen name="Profile" component={Profile} />
-            <Tab.Screen name="Settings" component={Settings} />
-          </Tab.Navigator>
-        </NavigationContainer>
+        <Router>
+          <div className="min-h-screen bg-background">
+            <ParticleCanvas />
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </Router>
       </RecyclingProvider>
     </WalletProvider>
   );
 }
+
+export default App;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useRecycling } from '@/context/RecyclingContext';
+import { toast } from 'sonner';
+import { useRecycling } from '../contexts/RecyclingContext';
 
 export interface ScanResult {
   plasticType: string;
@@ -15,8 +15,7 @@ export function useCamera() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cameraType, setCameraType] = useState<'camera' | 'qr' | 'nfc'>('camera');
-  const { toast } = useToast();
-  const { logRecycleUnit } = useRecycling();
+  const { submitRecycling } = useRecycling();
 
   const processScan = async (type: 'camera' | 'qr' | 'nfc') => {
     setIsScanning(true);
@@ -42,25 +41,21 @@ export function useCamera() {
 
       // Log to recycling context if verified
       if (mockResult.verified) {
-        logRecycleUnit({
-          city: mockResult.location || 'Unknown',
-          lat: 37.7749 + Math.random() * 0.01,
-          lng: -122.4194 + Math.random() * 0.01,
+        await submitRecycling({
+          userId: '1',
+          type: 'plastic',
+          weight: 1,
+          location: mockResult.location || 'Unknown',
+          imageUrl: mockResult.imageUrl || '',
+          verified: true,
+          tokensEarned: mockResult.tokensEarned,
         });
       }
 
-      toast({
-        title: `${type.toUpperCase()} Scan Successful!`,
-        description: `+${mockResult.tokensEarned} PLY tokens earned`,
-      });
-
+      toast(`${type.toUpperCase()} Scan Successful! +${mockResult.tokensEarned} POLY tokens earned`);
       return mockResult;
     } catch (error) {
-      toast({
-        title: `${type.toUpperCase()} Scan Failed`,
-        description: 'Please try again',
-        variant: 'destructive',
-      });
+      toast(`${type.toUpperCase()} Scan Failed - Please try again`);
       throw error;
     } finally {
       setIsScanning(false);
@@ -72,10 +67,7 @@ export function useCamera() {
   const scanNFC = () => processScan('nfc');
 
   const uploadFromGallery = async () => {
-    toast({
-      title: 'Gallery Upload',
-      description: 'Photo upload feature coming soon!',
-    });
+    toast('Gallery Upload - Photo upload feature coming soon!');
   };
 
   const clearResult = () => setScanResult(null);

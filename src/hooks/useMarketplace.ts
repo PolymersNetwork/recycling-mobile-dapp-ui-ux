@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet } from "@/contexts/WalletContext";
-import type { MarketplaceItem } from "@/types";
+import { useWallet } from "../contexts/WalletContext";
+import type { MarketplaceItem } from "../types";
 
 export function useMarketplace() {
   const { wallet } = useWallet();
@@ -11,38 +11,44 @@ export function useMarketplace() {
 
   // Mock marketplace items
   useEffect(() => {
-    setMarketplaceItems([
-      {
-        id: "1",
-        title: "Eco Water Bottle",
-        description: "Recycled plastic water bottle with eco-friendly design",
-        price: 50,
-        currency: "PLY",
-        imageUrl: "/marketplace/water-bottle.jpg",
-        category: "eco-products",
-        available: true,
-      },
-      {
-        id: "2", 
-        title: "Carbon Credit - 1 Ton",
-        description: "Verified carbon offset credit from reforestation project",
-        price: 25,
-        currency: "PLY",
-        imageUrl: "/marketplace/carbon-credit.jpg",
-        category: "carbon-credits",
-        available: true,
-      },
-      {
-        id: "3",
-        title: "Ocean Cleanup Donation",
-        description: "Support ocean plastic removal initiatives",
-        price: 100,
-        currency: "PLY", 
-        imageUrl: "/marketplace/ocean-cleanup.jpg",
-        category: "donations",
-        available: true,
-      },
-    ]);
+      setMarketplaceItems([
+        {
+          id: "1",
+          title: "Eco Water Bottle",
+          description: "Recycled plastic water bottle with eco-friendly design",
+          price: 50,
+          currency: "POLY",
+          imageUrl: "/marketplace/water-bottle.jpg",
+          category: "eco-products",
+          available: true,
+          type: "product",
+          seller: "EcoStore",
+        },
+        {
+          id: "2", 
+          title: "Carbon Credit - 1 Ton",
+          description: "Verified carbon offset credit from reforestation project",
+          price: 25,
+          currency: "POLY",
+          imageUrl: "/marketplace/carbon-credit.jpg",
+          category: "carbon-credits",
+          available: true,
+          type: "credit",
+          seller: "Carbon Trust",
+        },
+        {
+          id: "3",
+          title: "Ocean Cleanup Donation",
+          description: "Support ocean plastic removal initiatives",
+          price: 100,
+          currency: "POLY", 
+          imageUrl: "/marketplace/ocean-cleanup.jpg",
+          category: "donations",
+          available: true,
+          type: "donation",
+          seller: "Ocean Fund",
+        },
+      ]);
   }, []);
 
   const purchaseItem = async (itemId: string) => {
