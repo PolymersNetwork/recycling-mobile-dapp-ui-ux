@@ -1,32 +1,40 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { WalletProvider } from './contexts/WalletContext';
-import { RecyclingProvider } from './contexts/RecyclingContext';
-import { ParticleCanvas } from './components/particles/ParticleEngine';
-import { Dashboard } from './pages/Dashboard';
-import { Marketplace } from './pages/Marketplace';
-import { Profile } from './pages/Profile';
-import { NotFound } from './pages/NotFound';
-import './App.css';
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BottomNav } from "@/components/mobile/BottomNav";
+import { Home } from "@/pages/mobile/Home";
+import { Scan } from "@/pages/mobile/Scan";
+import { Projects } from "@/pages/mobile/Projects";
+import { Portfolio } from "@/pages/mobile/Portfolio";
+import { Profile } from "@/pages/mobile/Profile";
+import { Marketplace } from "@/pages/mobile/Marketplace";
+import NotFound from "./pages/NotFound";
 
-function App() {
-  return (
-    <WalletProvider>
-      <RecyclingProvider>
-        <Router>
-          <div className="min-h-screen bg-background">
-            <ParticleCanvas />
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/marketplace" element={<Marketplace />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
-        </Router>
-      </RecyclingProvider>
-    </WalletProvider>
-  );
-}
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <div className="relative">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/scan" element={<Scan />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <BottomNav />
+        </div>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

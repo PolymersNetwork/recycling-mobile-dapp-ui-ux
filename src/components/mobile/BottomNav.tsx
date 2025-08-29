@@ -1,7 +1,7 @@
 import { Home, Scan, FolderOpen, ShoppingBag, Wallet, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { ROUTES, COLORS } from "@/constants";
+import { ROUTES } from "@/constants";
 
 const navItems = [
   { icon: Home, label: "Home", path: ROUTES.HOME },
@@ -20,15 +20,16 @@ export function BottomNav() {
       <div className="flex items-center justify-around px-2 py-1">
         {navItems.map(({ icon: Icon, label, path }) => {
           const isActive = location.pathname === path;
-
+          
           return (
             <Link
               key={path}
               to={path}
               className={cn(
-                "flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-all duration-200 min-w-0 flex-1",
+                "flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-all duration-200",
+                "min-w-0 flex-1",
                 isActive
-                  ? `text-[${COLORS.ECO_PRIMARY}] bg-[${COLORS.ECO_PRIMARY_LIGHT}]`
+                  ? "text-eco-primary bg-eco-primary/10"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >

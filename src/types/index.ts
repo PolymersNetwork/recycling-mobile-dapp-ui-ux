@@ -1,8 +1,8 @@
-// User types
 export interface User {
   id: string;
   email: string;
   name: string;
+  avatar?: string;
   level: number;
   totalTokens: number;
   streakDays: number;
@@ -10,34 +10,51 @@ export interface User {
   createdAt: string;
 }
 
-// Badge types
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  rarity: "common" | "rare" | "epic" | "legendary";
-  unlockedAt?: string;
-}
-
-// Token types
 export interface TokenBalance {
-  symbol: "POLY" | "SOL" | "USDC";
+  symbol: string;
   amount: number;
   usdValue: number;
   change24h: number;
 }
 
-// Project types
+export interface Wallet {
+  id: string;
+  type: 'phantom' | 'solflare' | 'backpack' | 'sui';
+  address: string;
+  connected: boolean;
+  balances: TokenBalance[];
+}
+
+export interface Submission {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  plasticType: string;
+  confidence: number;
+  verified: boolean;
+  tokensEarned: number;
+  location?: {
+    lat: number;
+    lng: number;
+  };
+  timestamp: string;
+  status: 'pending' | 'verified' | 'rejected';
+  aiMetadata?: {
+    classification: string;
+    confidence: number;
+    boundingBoxes: any[];
+  };
+}
+
 export interface Project {
   id: string;
   title: string;
   description: string;
   imageUrl: string;
-  currentAmount: number;
   targetAmount: number;
+  currentAmount: number;
   contributors: number;
-  category: "cleanup" | "renewable" | "forest";
+  category: 'renewable' | 'conservation' | 'cleanup' | 'education';
   location: string;
   endDate: string;
   createdBy: string;
@@ -48,116 +65,54 @@ export interface Project {
   };
 }
 
-// Marketplace types
 export interface MarketplaceItem {
   id: string;
   title: string;
   description: string;
+  imageUrl: string;
   price: number;
-  currency: "POLY" | "SOL" | "USDC";
-  imageUrl: string;
-  category: "eco-products" | "carbon-credits" | "donations";
+  currency: 'POLY' | 'USDC' | 'SOL';
+  type: 'carbon-credit' | 'eco-product' | 'donation';
+  seller: string;
   available: boolean;
-  type?: string;
-  seller?: string;
+  category: string;
 }
 
-// Recycling types
-export interface RecyclingSubmission {
+export interface Badge {
   id: string;
-  userId: string;
-  type: "plastic" | "paper" | "metal" | "glass";
-  weight: number;
-  location: string;
-  imageUrl: string;
-  verified: boolean;
-  tokensEarned: number;
-  createdAt: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  unlockedAt?: string;
 }
 
-// Challenge types
 export interface Challenge {
   id: string;
   title: string;
   description: string;
-  targetValue: number;
-  currentValue: number;
+  type: 'daily' | 'weekly' | 'monthly';
+  requirement: number;
+  progress: number;
   reward: number;
-  rewardType: "POLY" | "badge";
-  deadline: string;
+  expiresAt: string;
   completed: boolean;
 }
 
-// Leaderboard types
-export interface LeaderboardEntry {
+export interface AnalyticsEvent {
   id: string;
   userId: string;
-  userName: string;
-  avatar: string;
-  score: number;
-  rank: number;
-  change: number;
-}
-
-// IoT types
-export interface IoTDevice {
-  id: string;
-  name: string;
-  type: "bin" | "scale" | "scanner";
-  location: string;
-  status: "online" | "offline" | "maintenance";
-  lastReading: {
-    timestamp: string;
-    value: number;
-    unit: string;
-  };
-}
-
-// Analytics types
-export interface UserStats {
-  totalRecycled: number;
-  tokensEarned: number;
-  carbonOffset: number;
-  rank: number;
-  streakDays: number;
-  badgesUnlocked: number;
-}
-
-// API Response types
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  error?: string;
-}
-
-// Particle effects types
-export interface ParticleOptions {
-  count?: number;
-  colors?: string[];
-  duration?: number;
-  size?: number;
-  spread?: number;
-}
-
-// Additional types for compatibility
-export interface Unit {
-  id: string;
-  type: string;
-  location: string;
-  weight: number;
+  event: string;
+  data: Record<string, any>;
   timestamp: string;
 }
 
-export interface CityMetrics {
-  city: string;
-  totalRecycled: number;
-  rank: number;
-  population: number;
-}
-
-export interface BadgeStats {
-  earned: number;
-  total: number;
-  rarityBreakdown: Record<string, number>;
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'reward' | 'challenge' | 'project' | 'system';
+  read: boolean;
+  data?: any;
+  createdAt: string;
 }
