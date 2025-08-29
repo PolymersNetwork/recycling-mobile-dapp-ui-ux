@@ -1,36 +1,117 @@
-# 🌱 Polymers v1.0 - Mobile Eco App
+# 🟢 Polymers Platform – Monorepo
 
-A comprehensive mobile-first sustainability application built with React, Capacitor, and TypeScript. Polymers gamifies environmental action by rewarding users for plastic collection, eco-project contributions, and sustainable behaviors.
+The Polymers Platform is a full-stack, gamified recycling ecosystem built on Solana and Expo/React Native, combining token rewards, NFT badges, interactive dashboards, and IoT-enabled recycling stations.
 
-## ✨ Features
+## 📱 Mobile App Screens & Components
 
-### 🎯 Core Functionality
-- **AI Plastic Detection**: Scan and identify plastic waste using camera + AI
-- **Token Rewards**: Earn POLY tokens for verified environmental actions
-- **Multi-Chain Wallets**: Support for Phantom, Solflare, Backpack (Solana), SUI wallets
-- **Crowdfunding**: Contribute to environmental projects with real impact tracking
-- **Carbon Marketplace**: Buy, sell, and donate carbon credits
-- **Gamification**: Levels, badges, streaks, and daily challenges
-- **Offline-First**: Queue actions when offline, sync when connected
+### Core Screens
 
-### 📱 Mobile Experience  
-- **Progressive Web App**: Installable on iOS/Android via Capacitor
-- **Native Camera**: Direct camera access for plastic scanning
-- **Push Notifications**: Real-time updates on rewards and challenges
-- **Responsive Design**: Optimized for all screen sizes with mobile-first approach
-- **Touch Gestures**: Intuitive mobile interactions with smooth animations
+| Screen | Description |
+|--------|-------------|
+| **Dashboard** | Wallet summary (POLY/SOL balances), rewards cards, streaks, and leaderboard of top recyclers. |
+| **Scan Bin** | Camera-based QR/NFC scanning, interactive map pins showing nearby recycling stations. |
+| **Upload Proof** | Capture photos or upload IoT sensor data to validate recycling events. |
+| **Reward Preview** | Real-time calculation panel for POLY, SOL, USDC earned per recycling action. |
+| **Claim Reward** | Solana Pay integration for instant redemption of earned tokens. |
+| **Donate to NGO** | Select tokens for donation, confirm transaction, and track impact metrics. |
+| **PoR NFT Viewer** | NFT card display with metadata, QR codes, and badge animations. |
+| **Batch Submission** | Multi-upload component for submitting multiple recycling proofs with progress tracking. |
+| **Challenges** | Gamified eco-challenges with streak tracking, progress bars, and leaderboard rankings. |
+| **Corporate Dashboard** | ESG-focused NFT viewer, audit reports, and corporate sustainability analytics. |
 
-### 🎨 Design System
-- **Eco Theme**: Dark green (#1B5E20) and light green (#A5D6A7) palette
-- **Typography**: Sora display font + Inter body text with proper font loading
-- **Animations**: Smooth transitions, micro-interactions, and glassmorphism effects
-- **Cards**: Enhanced with shadows, gradients, and hover effects
-- **Mobile-First**: Optimized spacing, typography, and touch targets
+### UI Components
+- **Gradient Buttons** – Eco-friendly design system, consistent branding.
+- **Animated Counters** – Live updates of POLY/CRT balances and eco actions.
+- **ParticleEngine Effects** – Coin and sparkle bursts on token earning, NFT unlocks, and purchases.
+- **NFT Galleries** – Display unlocked NFTs, metadata, and rarity badges.
+- **Interactive Maps** – Show recycling bin locations with clickable pins.
+- **Progress Tracking** – Weekly challenges, streaks, and milestone indicators.
+- **Notifications** – Push/SMS alerts for milestones, badges, and leaderboard updates.
 
-## 🚀 Quick Start
+## ⚡ Key Features
+- **Live Wallet Integration** – Connect mobile wallets (Solana Mobile Wallet Adapter).
+- **Automatic PLY Token Minting** – On recycling scans, contributions, and purchases.
+- **NFT Badge Minting** – Candy Machine integration with particle animations.
+- **Gamified Interactions** – Live updates, particle bursts, and animated badges.
+- **IoT-Enabled Recycling Machines** – Supports Raspberry Pi and sensor data submissions.
+- **Leaderboard & Challenges** – Encourage eco-friendly actions through gamification.
+- **Reusable Components** – Works across mobile and web dashboard.
+
+## 🛠️ Tech Stack
+- **Frontend**: React Native (Expo), TailwindCSS, React Navigation
+- **Backend**: Express + Prisma + PostgreSQL
+- **Blockchain**: Solana Web3.js, SPL Token, Metaplex Candy Machine for NFTs
+- **Payments**: Solana Pay integration
+- **IoT / Hardware**: Raspberry Pi, NFC/QR-enabled recycling stations
+- **State Management**: Context + Hooks (usePortfolio, RecyclingProvider, WalletProvider)
+
+## 🔧 Environment Variables
+
+Set these in `.env.local` or on Vercel:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_MINT_API_URL=https://api.actions.polymers.net/mint
+TOKEN_PROGRAM_ID=TokenkegQfeZyiNwAJbNbGKPFXkQd5J8X8wnF8MPzYx
+NFT_PROGRAM_ID=gEb7nD9yLkau1P4uyMdke9byJNrat61suH4vYiPUuiR
+DEFAULT_WALLET_ADDRESS=gEb7nD9yLkau1P4uyMdke9byJNrat61suH4vYiPUuiR
+WALLETCONNECT_BRIDGE=https://bridge.walletconnect.org
+METADATA_SERVICE_URL=https://api.example.com/upload-metadata
+ERROR_TRACKING_SERVICE_URL=https://errors.example.com/report
+SECRET_KEY=your-secret-key-here
+JWT_SECRET=your-jwt-secret-key-here
+NODE_ENV=development
+```
+
+## 🎮 Usage
+
+### Recycling
+1. Open **Scan Bin** screen.
+2. Point camera at a recycling station QR/NFC code.
+3. Earn PLY tokens automatically.
+4. Receive NFT badge rewards for milestones.
+5. Observe particle animations and live balance updates.
+
+### Marketplace
+1. Navigate to **Marketplace**.
+2. Choose an item (eco products, carbon credits, donations).
+3. Confirm purchase.
+4. Tokens are deducted from wallet.
+5. NFT badges mint with particle effects, balances update live.
+
+## 🏗️ Monorepo Structure
+
+```
+/polymers-platform
+├─ /apps
+│  ├─ /mobile       # Expo React Native app
+│  ├─ /dashboard    # Web React dashboard
+├─ /packages
+│  ├─ /contexts     # WalletProvider, RecyclingProvider, PortfolioContext
+│  ├─ /hooks        # usePortfolio, useWallet, useRewards
+│  ├─ /components
+│  │  ├─ /ui        # EcoCard, EcoButton, AnimatedBadge, AnimatedCounter
+│  │  ├─ /particles # ParticleEngine, ParticleTrigger
+│  ├─ /types        # TypeScript interfaces (Users, Projects, Marketplace, Badges)
+│  ├─ /utils        # Tokens, NFT, Rewards, Charts, SolanaHelpers
+│  ├─ /actions      # Contributions, Purchases, NFT Minting
+│  ├─ /services     # Backend API, Solana Pay, IoT integration
+│  ├─ /constants    # App constants, colors, endpoints
+├─ /programs        # On-chain programs and smart contracts
+├─ /backend         # Express + Prisma API
+├─ App.tsx          # Main entry point (navigation + providers)
+├─ package.json
+├─ tsconfig.json
+├─ README.md
+```
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - iOS Simulator (Mac only) or Android Studio for mobile testing
 
@@ -39,13 +120,18 @@ A comprehensive mobile-first sustainability application built with React, Capaci
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd polymers-mobile-app
+cd polymers-platform
 
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (web)
+cd apps/dashboard
 npm run dev
+
+# Start mobile development
+cd apps/mobile
+npm start
 ```
 
 ### 📱 Mobile Development with Capacitor
@@ -87,58 +173,14 @@ npx cap run android
 - **Push Notifications**: Automated reward notifications
 - **Analytics**: Track user behavior and app performance
 
-## 🎨 Enhanced Design System
-
-### Typography & Fonts
-- **Display Font**: Sora (headings, titles, brands) - loaded via Google Fonts
-- **Body Font**: Inter (paragraphs, UI text, forms) - anti-aliased rendering
-- **Font Weights**: 300-800 available with proper fallbacks
-
-### Enhanced Card System
-```tsx
-<EcoCard variant="eco" className="shadow-glow animate-fade-in">
-  <EcoCardHeader>
-    <EcoCardTitle>Enhanced Cards</EcoCardTitle>
-  </EcoCardHeader>
-  <EcoCardContent>
-    - Better spacing and responsive design
-    - Glassmorphism effects and gradients
-    - Smooth hover animations
-    - Mobile-optimized touch targets
-  </EcoCardContent>
-</EcoCard>
-```
-
-### Mobile-First Improvements
-- ✅ **Better Spacing**: Optimized padding and margins for mobile screens
-- ✅ **Enhanced Cards**: Multiple variants with shadows, gradients, and animations
-- ✅ **Responsive Typography**: Proper scaling across all screen sizes
-- ✅ **Touch Interactions**: Larger touch targets and feedback animations
-- ✅ **Loading States**: Skeleton screens and smooth transitions
-- ✅ **Accessibility**: WCAG compliant with proper contrast and focus states
-
-## 📱 Updated Features
-
-### ✅ Enhanced UI Components:
-- 🎨 **Hero Stats Card**: Gradient background with animated elements
-- 📊 **Quick Stats Grid**: Three-column layout with icon indicators  
-- 🏆 **Enhanced Challenges**: Better visual hierarchy and progress tracking
-- 📈 **Activity Feed**: Improved spacing and badge system
-- 💫 **Smooth Animations**: Fade-in, slide-up, and bounce effects
-- 🎯 **Action Buttons**: Enhanced with hover effects and better sizing
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18, TypeScript, Vite
-- **Mobile**: Capacitor for iOS/Android deployment
-- **Styling**: Tailwind CSS with custom eco theme + enhanced design tokens
-- **UI Components**: shadcn/ui with custom eco variants
-- **Fonts**: Google Fonts (Sora + Inter) with proper loading
-- **Animations**: Custom CSS animations with Tailwind utilities
-
-## 📄 License
-
-This project is licensed under the MIT License.
+## 🏆 Roadmap
+- ✅ Animated counters & particles
+- ✅ NFT badge integration
+- ✅ Marketplace gamification
+- ✅ IoT recycling machine integration
+- 🔜 Leaderboards & social sharing
+- 🔜 Cross-chain rewards
+- 🔜 Corporate ESG dashboards and audit reports
 
 ---
 
