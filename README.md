@@ -1,73 +1,192 @@
-# Welcome to your Lovable project
+🌍 Polymers Network Mobile App
 
-## Project info
+An Expo React Native app for recycling tracking, rewards, and corporate ESG management. Users earn PLY tokens for verified recycling, unlock NFT badges, and interact with a fully gamified, blockchain-powered ecosystem.
 
-**URL**: https://lovable.dev/projects/60ce5f4f-6cc7-4428-b362-21ffefa4b3b9
+⸻
 
-## How can I edit this code?
+🚀 Features
 
-There are several ways of editing your application.
+♻️ Recycle & Scan
+	•	AI Camera Scan: Detect plastic type and estimate weight.
+	•	NFC Scan: Tap NFC-enabled items for instant verification.
+	•	Instant Rewards: Earn PLY tokens proportional to recycled weight.
+	•	Particle Effects: Coins, sparkles, and bursts animate rewards.
+	•	NFT Badges: Unlock eco badges at milestone contributions.
 
-**Use Lovable**
+🛍️ Marketplace
+	•	Redeem PLY/CRT tokens for:
+	•	Carbon credits
+	•	Eco-friendly products
+	•	Tree planting donations
+	•	Visual Feedback: Particle bursts and badge animations on purchases.
+	•	NFT Minting: Automatically mint Candy Machine NFTs for eco achievements.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/60ce5f4f-6cc7-4428-b362-21ffefa4b3b9) and start prompting.
+👤 Profile & Settings
+	•	Live Balances: PLY and CRT token counters.
+	•	Animated Badges: View unlocked NFTs with professional animations.
+	•	User Preferences: Manage wallet, notifications, and theme (dark/light).
 
-Changes made via Lovable will be committed automatically to this repo.
+🏢 Corporate Dashboard
+	•	Stake & Burn CRT to generate ESG proofs.
+	•	Carbon Offset History: On-chain transactions with TX links and copy-to-clipboard.
+	•	NFT Badges: Threshold-based NFT rewards for corporate sustainability milestones.
+	•	Gamified Analytics: Particle effects & animated counters for engagement.
 
-**Use your preferred IDE**
+📊 Gamification
+	•	Leaderboards for recyclers and corporate participants.
+	•	Streak tracking and milestone badges.
+	•	Historical charts and contribution analytics.
+	•	Real-time on-chain verification via Solana Pay and Helius events.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+⸻
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+🧩 Tech Stack
+	•	Expo & React Native (Mobile cross-platform)
+	•	TypeScript for type safety
+	•	React Navigation & Expo Router for tab navigation
+	•	Solana Web3.js + Metaplex SDK for blockchain interactions
+	•	SPL Tokens (PLY & CRT)
+	•	ParticleEngine for gamified animations
+	•	Firebase Analytics for tracking
+	•	Supabase for backend data
+	•	Resend / Email for notifications
+	•	Clerk for authentication
+	•	Circle & Solana Pay for payments
+	•	DePIN IoT integration for hardware verification
 
-Follow these steps:
+⸻
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+📂 Folder Structure
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+/app
+  /screens
+    RecycleScreen.tsx
+    MarketplaceScreen.tsx
+    ProfileScreen.tsx
+    SettingsScreen.tsx
+    CorporateDashboard.tsx
 
-# Step 3: Install the necessary dependencies.
-npm i
+/contexts
+  RewardsContext.tsx
+  ParticleContext.tsx
+  WalletContext.tsx
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+/hooks
+  useScan.ts
+  useLocation.ts
+  useRewards.ts
+  usePortfolio.ts
 
-**Edit a file directly in GitHub**
+/components
+  AnimatedBadge.tsx
+  AnimatedCounter.tsx
+  GradientBackground.tsx
+  ParticleEngine.tsx
+  ActionButton.tsx
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+/utils
+  api.ts
+  blockchain.ts
+  nft.ts
+  rewards.ts
+  tokens.ts
+  analytics.ts
+  charts.ts
+  constants.ts
+  types.ts
+  email.ts
+  payments.ts
 
-**Use GitHub Codespaces**
+/services
+  solanaHelpers.ts
+  notifications.ts
+  walletAdapters.ts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+⸻
 
-This project is built with:
+⚡ Environment Variables
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Set these in .env or .env.local:
 
-## How can I deploy this project?
+# Solana
+VITE_APP_SOLANA_CLUSTER=devnet
+VITE_APP_SOLANA_RPC=https://api.devnet.solana.com
+VITE_APP_SOLANA_MAINNET_RPC=https://api.mainnet-beta.solana.com
+VITE_APP_HELIUS_API_KEY=your_helius_api_key
 
-Simply open [Lovable](https://lovable.dev/projects/60ce5f4f-6cc7-4428-b362-21ffefa4b3b9) and click on Share -> Publish.
+# Supabase
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-## Can I connect a custom domain to my Lovable project?
+# Clerk Authentication
+CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
+CLERK_SECRET_KEY=your-clerk-secret-key
 
-Yes, you can!
+# NFT Programs
+VITE_POLYMER_PROGRAM_ID=YourPolymerProgram111111111111111111111111111
+VITE_MARKETPLACE_PROGRAM_ID=YourMarketplace11111111111111111111111111
+VITE_REWARDS_PROGRAM_ID=YourRewards11111111111111111111111111111111
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Tokens
+POLY_MINT=YourPolyMint111111111111111111111111111111111
+CRT_MINT=YourCRTTokenMint1111111111111111111111111111
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+⸻
+
+📦 Installation
+
+# Clone repo
+git clone https://github.com/PolymersNetwork/polymers-mobile-app.git
+cd polymers-mobile-app
+
+# Install dependencies
+npm install
+# or
+yarn install
+
+# Start Expo
+npx expo start
+
+
+⸻
+
+🎮 Usage
+	1.	Recycle
+	•	Scan plastic with camera or NFC.
+	•	Earn PLY tokens instantly.
+	•	Unlock NFT badges with milestone contributions.
+	•	Watch ParticleEngine bursts for rewards.
+	2.	Marketplace
+	•	Redeem PLY/CRT tokens.
+	•	Purchase carbon credits, eco products, or NFTs.
+	•	Animated counters and NFT badge unlocks trigger automatically.
+	3.	Profile & Settings
+	•	Check live PLY/CRT balances.
+	•	Manage wallet, notifications, and theme.
+	•	View unlocked NFT badges with animated effects.
+	4.	Corporate Dashboard
+	•	Stake/Burn CRT for ESG proofs.
+	•	Monitor Carbon Offset History with TX links.
+	•	View NFT badge rewards for milestones.
+	•	Real-time blockchain verification with Solana Pay + Helius events.
+
+⸻
+
+🏗 Roadmap
+	•	✅ Recycle & Scan with AI/NFC
+	•	✅ Rewards with PLY/CRT tokens
+	•	✅ ParticleEngine gamification
+	•	✅ NFT badges via Candy Machine
+	•	✅ Marketplace with token redemption
+	•	✅ Corporate Dashboard with ESG proofs
+	•	🔜 Leaderboards & social sharing
+	•	🔜 Multi-chain wallet support
+	•	🔜 DePIN IoT network expansion
+
+⸻
+
+📄 License
+
+MIT © 2025 Polymers Network
