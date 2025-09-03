@@ -44,7 +44,7 @@ export function Profile() {
             <div className="text-center">
               <Target className="w-6 h-6 text-eco-success mx-auto mb-2" />
               <p className="text-lg font-bold">2.8K</p>
-              <p className="text-xs text-muted-foreground">POLY Earned</p>
+              <p className="text-xs text-muted-foreground">PLY Earned</p>
             </div>
           </EcoCard>
           <EcoCard padding="sm">

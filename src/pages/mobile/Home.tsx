@@ -99,7 +99,7 @@ export function Home() {
                 <Coins className="w-5 h-5 text-eco-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total POLY</p>
+                <p className="text-sm text-muted-foreground">Total PLY</p>
                 <p className="text-lg font-bold text-eco-primary">{user.totalTokens.toLocaleString()}</p>
               </div>
             </div>
@@ -127,13 +127,13 @@ export function Home() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Tokens Earned</span>
-                <span className="font-semibold text-eco-primary">+{user.todayTokens} POLY</span>
+                <span className="font-semibold text-eco-primary">+{user.todayTokens} PLY</span>
               </div>
               
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Weekly Goal Progress</span>
-                  <span>{user.weeklyProgress}/{user.weeklyGoal} POLY</span>
+                  <span>{user.weeklyProgress}/{user.weeklyGoal} PLY</span>
                 </div>
                 <Progress value={(user.weeklyProgress / user.weeklyGoal) * 100} className="h-2" />
               </div>
@@ -176,7 +176,7 @@ export function Home() {
                   <div className="w-2 h-2 bg-eco-success rounded-full"></div>
                   <span className="text-sm">Scan 3 plastic items</span>
                 </div>
-                <span className="text-xs text-eco-success font-medium">+50 POLY</span>
+                <span className="text-xs text-eco-success font-medium">+50 PLY</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -184,7 +184,7 @@ export function Home() {
                   <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
                   <span className="text-sm">Contribute to a project</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">+100 POLY</span>
+                <span className="text-xs text-muted-foreground font-medium">+100 PLY</span>
               </div>
             </div>
           </EcoCardContent>
@@ -224,7 +224,7 @@ export function Home() {
                       <p className="text-sm font-medium">{submission.plastic_type} recycled</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(submission.created_at).toLocaleDateString()} • 
-                        {submission.weight}kg • +{submission.reward_amount || 25} POLY
+                        {submission.weight}kg • +{submission.reward_amount || 25} PLY
                       </p>
                     </div>
                   </div>

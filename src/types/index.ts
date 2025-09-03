@@ -71,7 +71,7 @@ export interface MarketplaceItem {
   description: string;
   imageUrl: string;
   price: number;
-  currency: 'POLY' | 'USDC' | 'SOL';
+  currency: 'PLY' | 'USDC' | 'SOL';
   type: 'carbon-credit' | 'eco-product' | 'donation';
   seller: string;
   available: boolean;

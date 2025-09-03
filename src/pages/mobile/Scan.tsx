@@ -29,7 +29,7 @@ export function Scan() {
       
       toast({
         title: "Scan Successful!",
-        description: `+${mockResult.tokensEarned} POLY tokens earned`,
+        description: `+${mockResult.tokensEarned} PLY tokens earned`,
       });
     }, 3000);
   };
@@ -131,7 +131,7 @@ export function Scan() {
                   <span className="text-sm text-muted-foreground">Tokens Earned</span>
                   <div className="flex items-center space-x-1">
                     <Zap className="w-4 h-4 text-eco-success" />
-                    <span className="font-bold text-eco-success">+{scanResult.tokensEarned} POLY</span>
+                    <span className="font-bold text-eco-success">+{scanResult.tokensEarned} PLY</span>
                   </div>
                 </div>
                 
@@ -161,7 +161,7 @@ export function Scan() {
               
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">2 more scans to complete daily challenge</p>
-                <p className="text-xs text-eco-primary font-medium">+50 POLY bonus</p>
+                <p className="text-xs text-eco-primary font-medium">+50 PLY bonus</p>
               </div>
             </div>
           </EcoCardContent>

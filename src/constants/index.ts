@@ -18,8 +18,8 @@ export const WALLET_TYPES = {
 } as const;
 
 export const TOKEN_METADATA = {
-  POLY: {
-    symbol: 'POLY',
+  PLY: {
+    symbol: 'PLY',
     name: 'Polymer Token',
     decimals: 9,
     color: '#1B5E20',

@@ -6,9 +6,9 @@ import { ShoppingCart, Leaf, Heart } from "lucide-react";
 
 export function Marketplace() {
   const items = [
-    { id: 1, title: "Carbon Credits", price: "50 POLY", type: "credit" },
+    { id: 1, title: "Carbon Credits", price: "50 PLY", type: "credit" },
     { id: 2, title: "Eco Water Bottle", price: "25 USDC", type: "product" },
-    { id: 3, title: "Tree Planting", price: "100 POLY", type: "donation" },
+    { id: 3, title: "Tree Planting", price: "100 PLY", type: "donation" },
   ];
 
   return (
