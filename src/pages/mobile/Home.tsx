@@ -1,21 +1,90 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Coins, Zap, Target, TrendingUp, Camera, Leaf } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export function Home() {
-  const [user] = useState({
+  const [user, setUser] = useState({
     name: "Alex",
     level: 12,
     streakDays: 7,
-    totalTokens: 2840,
-    todayTokens: 125,
+    totalTokens: 0,
+    todayTokens: 0,
     weeklyGoal: 500,
-    weeklyProgress: 275,
+    weeklyProgress: 0,
   });
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch recent recycling submissions
+        const { data: submissions, error: submissionsError } = await supabase
+          .from('recycling_submissions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (submissionsError) {
+          console.error('Error fetching submissions:', submissionsError.message);
+          toast({
+            title: "Error",
+            description: "Failed to load recent activity",
+            variant: "destructive"
+          });
+        } else if (submissions) {
+          setRecentSubmissions(submissions);
+        }
+
+        // Fetch user rewards data
+        const { data: rewards, error: rewardsError } = await supabase
+          .from('rewards')
+          .select('amount, created_at')
+          .order('created_at', { ascending: false });
+
+        if (rewardsError) {
+          console.error('Error fetching rewards:', rewardsError.message);
+        } else if (rewards) {
+          const totalTokens = rewards.reduce((sum, reward) => sum + (reward.amount || 0), 0);
+          const today = new Date().toDateString();
+          const todayTokens = rewards
+            .filter(reward => new Date(reward.created_at).toDateString() === today)
+            .reduce((sum, reward) => sum + (reward.amount || 0), 0);
+          
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          const weeklyProgress = rewards
+            .filter(reward => new Date(reward.created_at) >= weekAgo)
+            .reduce((sum, reward) => sum + (reward.amount || 0), 0);
+
+          setUser(prev => ({
+            ...prev,
+            totalTokens,
+            todayTokens,
+            weeklyProgress
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
@@ -127,27 +196,46 @@ export function Home() {
             <EcoCardTitle>Recent Activity</EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-2">
-                <div className="w-8 h-8 bg-eco-success/20 rounded-full flex items-center justify-center">
-                  <Leaf className="w-4 h-4 text-eco-success" />
+            {loading ? (
+              <div className="space-y-3">
+                <div className="animate-pulse flex items-center space-x-3 p-2">
+                  <div className="w-8 h-8 bg-muted rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-muted rounded mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Plastic bottle scanned</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago • +25 POLY</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3 p-2">
-                <div className="w-8 h-8 bg-eco-primary/20 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-eco-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Ocean Cleanup donation</p>
-                  <p className="text-xs text-muted-foreground">1 day ago • -100 POLY</p>
+                <div className="animate-pulse flex items-center space-x-3 p-2">
+                  <div className="w-8 h-8 bg-muted rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-muted rounded mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : recentSubmissions.length > 0 ? (
+              <div className="space-y-3">
+                {recentSubmissions.map((submission) => (
+                  <div key={submission.id} className="flex items-center space-x-3 p-2">
+                    <div className="w-8 h-8 bg-eco-success/20 rounded-full flex items-center justify-center">
+                      <Leaf className="w-4 h-4 text-eco-success" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{submission.plastic_type} recycled</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(submission.created_at).toLocaleDateString()} • 
+                        {submission.weight}kg • +{submission.reward_amount || 25} POLY
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground">No recent activity</p>
+                <p className="text-xs text-muted-foreground mt-1">Start recycling to see your activity here!</p>
+              </div>
+            )}
           </EcoCardContent>
         </EcoCard>
       </main>
