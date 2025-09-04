@@ -46,6 +46,21 @@ export function WalletButton() {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
+  const getUserEmail = () => {
+    if (user?.email) {
+      if (typeof user.email === 'string') {
+        return user.email;
+      }
+      return user.email.address || 'user@example.com';
+    }
+    return 'user@example.com';
+  };
+
+  const getUserInitials = () => {
+    const email = getUserEmail();
+    return email.slice(0, 2).toUpperCase();
+  };
+
   if (!ready || !authenticated) {
     return (
       <Button 
@@ -75,7 +90,7 @@ export function WalletButton() {
           <div className="flex items-center space-x-2">
             <Avatar className="w-6 h-6">
               <AvatarFallback className="bg-eco-primary text-white text-xs">
-                {user?.email?.slice(0, 2).toUpperCase() || "W"}
+                {getUserInitials()}
               </AvatarFallback>
             </Avatar>
             {hasWallet ? (
@@ -98,12 +113,12 @@ export function WalletButton() {
           <div className="flex items-center space-x-3">
             <Avatar className="w-10 h-10">
               <AvatarFallback className="bg-eco-primary text-white">
-                {user?.email?.slice(0, 2).toUpperCase() || "U"}
+                {getUserInitials()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">
-                {user?.email || "Anonymous User"}
+                {getUserEmail()}
               </p>
               {hasWallet && (
                 <div className="flex items-center space-x-2 mt-1">
