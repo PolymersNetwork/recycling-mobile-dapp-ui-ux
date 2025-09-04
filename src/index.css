@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Polymers Network Design System - All colors, gradients, fonts, etc defined here. 
+All colors MUST be HSL for proper theming support.
+Optimized for mobile-first with enhanced readability and spacing.
 */
 
 @layer base {
@@ -36,28 +37,47 @@ All colors MUST be HSL.
     --input: 0 0% 91%;
     --ring: 122 39% 23%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
+    --radius-sm: 0.75rem;
+    --radius-lg: 1.25rem;
 
-    /* Custom Eco Theme Variables */
+    /* Polymers Network Brand Colors */
     --eco-primary: 122 39% 23%;        /* Dark Green #1B5E20 */
     --eco-primary-light: 122 24% 79%;  /* Light Green #A5D6A7 */
     --eco-success: 122 39% 49%;        /* Success Green */
     --eco-warning: 45 93% 47%;         /* Amber Warning */
     --eco-danger: 0 84% 60%;           /* Red Danger */
+    --eco-info: 217 91% 60%;           /* Blue Info */
     
-    /* Gradients */
+    /* Token Colors */
+    --token-ply: 122 39% 23%;          /* PLY Token - Green */
+    --token-sol: 261 86% 65%;          /* SOL Token - Purple */
+    --token-usdc: 215 98% 51%;         /* USDC Token - Blue */
+    --token-reco: 160 84% 39%;         /* RECO Token - Teal */
+    --token-crt: 45 93% 47%;           /* CRT Token - Gold */
+    
+    /* Enhanced Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--eco-primary)), hsl(var(--eco-success)));
     --gradient-eco: linear-gradient(135deg, hsl(var(--eco-primary-light)), hsl(var(--eco-primary)));
     --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
+    --gradient-glow: linear-gradient(135deg, hsl(var(--eco-primary) / 0.1), hsl(var(--eco-success) / 0.1));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(var(--muted) / 0.3));
 
-    /* Shadows */
-    --shadow-eco: 0 10px 25px -5px hsl(var(--eco-primary) / 0.1);
-    --shadow-card: 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-    --shadow-glow: 0 0 30px hsl(var(--eco-primary) / 0.3);
+    /* Enhanced Shadows with better contrast */
+    --shadow-eco: 0 10px 25px -5px hsl(var(--eco-primary) / 0.15);
+    --shadow-card: 0 4px 12px -2px hsl(0 0% 0% / 0.08);
+    --shadow-glow: 0 0 40px hsl(var(--eco-primary) / 0.4);
+    --shadow-button: 0 2px 8px -1px hsl(var(--eco-primary) / 0.2);
 
-    /* Animations */
+    /* Smooth Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Spacing System */
+    --spacing-card: 1.5rem;
+    --spacing-section: 2rem;
+    --spacing-component: 1rem;
 
     --sidebar-background: 0 0% 98%;
 
