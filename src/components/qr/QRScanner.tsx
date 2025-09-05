@@ -76,12 +76,12 @@ export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }:
   const toggleFlashlight = async () => {
     if (stream) {
       const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities();
+      const capabilities = track.getCapabilities() as any;
       
       if (capabilities.torch) {
         try {
           await track.applyConstraints({
-            advanced: [{ torch: !flashlight }]
+            advanced: [{ torch: !flashlight } as any]
           });
           setFlashlight(!flashlight);
         } catch (err) {

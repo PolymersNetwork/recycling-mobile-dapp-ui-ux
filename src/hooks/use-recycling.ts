@@ -104,16 +104,15 @@ export function useRecycling() {
         itemTypeId = itemData.ewasteType.id;
       }
 
-      const submission: Omit<RecyclingSubmission, 'id' | 'created_at' | 'updated_at'> = {
+      const submission = {
         user_id: user.id,
         collection_point_id: itemData.collectionPointId,
-        plastic_type: type === 'plastic' ? itemTypeId : undefined,
-        ewaste_type: type === 'ewaste' ? itemTypeId : undefined,
+        plastic_type: type === 'plastic' && itemData.plasticType ? itemData.plasticType.id : 'OTHER',
         weight: itemData.weight,
         location: itemData.location,
         photo_urls: itemData.photos,
-        description: itemData.description,
-        status: 'pending',
+        description: itemData.description || '',
+        status: 'pending' as const,
         reward_amount: rewardAmount
       };
 
@@ -182,7 +181,7 @@ export function useRecycling() {
       const totalRewards = userRewards?.reduce((sum, reward) => sum + Number(reward.amount), 0) || 0;
       
       const plasticItems = userSubmissions?.filter(s => s.plastic_type).length || 0;
-      const ewasteItems = userSubmissions?.filter(s => s.ewaste_type).length || 0;
+      const ewasteItems = userSubmissions?.filter(s => s.description?.includes('e-waste')).length || 0;
 
       // Mock CO2 calculation (in production, this would be more sophisticated)
       const co2Saved = totalSubmissions * 2.5; // 2.5 kg CO2 per item average

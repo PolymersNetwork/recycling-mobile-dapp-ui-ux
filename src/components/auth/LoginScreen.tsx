@@ -40,26 +40,33 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-eco-primary via-eco-success to-eco-primary-light flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-muted via-background to-muted/50 flex items-center justify-center p-4">
       <motion.div
         className="w-full max-w-md"
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
+        style={{
+          backgroundImage: 'url(/lovable-uploads/7acece68-7f1a-488d-8487-6cdf3c125a27.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          borderRadius: '1rem'
+        }}
       >
-        {/* Logo Header */}
-        <motion.div
-          className="text-center mb-8"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-        >
-          <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-2xl">
-            <span className="text-3xl">🌱</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-white/90">Connect to Polymers Network</p>
-        </motion.div>
+        <div className="bg-background/95 backdrop-blur-lg rounded-2xl p-6">
+          {/* Logo Header */}
+          <motion.div
+            className="text-center mb-8"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <div className="w-20 h-20 bg-primary rounded-full mx-auto mb-4 flex items-center justify-center shadow-2xl">
+              <span className="text-3xl text-white">🌱</span>
+            </div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Polymers Network</h1>
+            <p className="text-muted-foreground">Connect to start recycling</p>
+          </motion.div>
 
         {/* Login Options */}
         <Card className="bg-white/95 backdrop-blur-lg border-0 shadow-2xl">
@@ -140,6 +147,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             By connecting, you agree to our Terms of Service
           </p>
         </motion.div>
+        </div>
       </motion.div>
     </div>
   );
