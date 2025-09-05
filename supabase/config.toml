@@ -1,1 +1,37 @@
 project_id = "naravgddngdbnvqfzvby"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "https://60ce5f4f-6cc7-4428-b362-21ffefa4b3b9.lovableproject.com"
+additional_redirect_urls = ["https://localhost:5173", "http://localhost:5173"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+security_update_password_require_reauthentication = true
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.user-profile]
+verify_jwt = true

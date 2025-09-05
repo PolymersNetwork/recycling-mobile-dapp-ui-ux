@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useCamera } from '@/hooks/use-camera';
+import { SolanaQRGenerator } from '@/utils/qr-code';
 import { 
   Camera, 
   X, 
@@ -11,7 +13,8 @@ import {
   RotateCcw,
   CheckCircle,
   AlertCircle,
-  Scan as ScanIcon
+  Scan as ScanIcon,
+  SwitchCamera
 } from 'lucide-react';
 
 interface QRScannerProps {
@@ -21,114 +24,79 @@ interface QRScannerProps {
   acceptedFormats?: string[];
 }
 
-export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }: QRScannerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR', 'Solana Pay'] }: QRScannerProps) {
+  const { 
+    videoRef, 
+    isActive, 
+    error, 
+    capabilities, 
+    startCamera, 
+    stopCamera, 
+    capturePhoto, 
+    toggleTorch, 
+    switchCamera,
+    clearError 
+  } = useCamera();
+  
   const [flashlight, setFlashlight] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [lastScan, setLastScan] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      startCamera();
+      handleStartCamera();
     } else {
       stopCamera();
     }
 
     return () => stopCamera();
-  }, [isOpen]);
+  }, [isOpen, startCamera, stopCamera]);
 
-  const startCamera = async () => {
+  const handleStartCamera = async () => {
     try {
-      setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-
-      setStream(mediaStream);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
-      }
-
+      clearError();
+      await startCamera({ facingMode: 'environment' });
       setScanning(true);
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Unable to access camera. Please check permissions.');
     }
   };
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setScanning(false);
-  };
-
-  const toggleFlashlight = async () => {
-    if (stream) {
-      const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities() as any;
-      
-      if (capabilities.torch) {
-        try {
-          await track.applyConstraints({
-            advanced: [{ torch: !flashlight } as any]
-          });
-          setFlashlight(!flashlight);
-        } catch (err) {
-          console.error('Flashlight error:', err);
-        }
+  const handleToggleFlashlight = async () => {
+    if (capabilities.torch) {
+      const success = await toggleTorch(!flashlight);
+      if (success) {
+        setFlashlight(!flashlight);
       }
     }
   };
 
-  const captureFrame = () => {
-    if (!videoRef.current || !canvasRef.current) return null;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const video = videoRef.current;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      return canvas.toDataURL('image/jpeg', 0.8);
-    }
-
-    return null;
+  const handleSwitchCamera = async () => {
+    await switchCamera();
   };
 
-  // Mock QR detection for demo purposes
-  const mockQRDetection = () => {
-    const mockResults = [
-      'solana:7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHkv?amount=25&memo=Recycling+Reward',
-      'PLASTIC_ID:PET_001_20240115_BIN_A7',
-      'DEPIN_NODE:NODE_123_SENSOR_VALIDATION_OK',
-      'RECYCLING_CENTER:RC_001_LOCATION_VERIFIED'
+  const handleCapture = async () => {
+    const photoData = capturePhoto();
+    if (photoData) {
+      // In a real app, this would analyze the QR code from the image
+      const mockData = generateMockSolanaQR();
+      setLastScan(mockData);
+      
+      setTimeout(() => {
+        onScan(mockData);
+      }, 1000);
+    }
+  };
+
+  const generateMockSolanaQR = (): string => {
+    const mockPayments = [
+      'solana:7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHkv?amount=25&memo=Recycling+Reward&label=PLY+Tokens',
+      'solana:9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM?amount=50&spl-token=PLY123...&memo=Carbon+Credits',
+      'solana:BWqcr7ESTtVoAaUFgYs2k9Q3KmgGtDjB1t6JqE3LqgxC?amount=15&memo=E-waste+Reward',
+      'solana:APjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v?amount=10&spl-token=USDC&memo=Donation'
     ];
 
-    const randomResult = mockResults[Math.floor(Math.random() * mockResults.length)];
-    return randomResult;
-  };
-
-  const handleManualScan = () => {
-    const mockData = mockQRDetection();
-    setLastScan(mockData);
-    
-    setTimeout(() => {
-      onScan(mockData);
-    }, 1000);
+    return mockPayments[Math.floor(Math.random() * mockPayments.length)];
   };
 
   return (
@@ -140,17 +108,30 @@ export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }:
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Camera View */}
-          <div className="relative w-full h-full">
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              playsInline
-              muted
-            />
-            
-            {/* Hidden canvas for frame capture */}
-            <canvas ref={canvasRef} className="hidden" />
+            {/* Camera View */}
+            <div className="relative w-full h-full">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                playsInline
+                muted
+                autoPlay
+              />
+              
+              {/* Error Display */}
+              {error && (
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                  <Card className="bg-red-500/20 border-red-500/50 max-w-sm mx-4">
+                    <CardContent className="p-4 flex items-center space-x-3">
+                      <AlertCircle className="text-red-400" size={24} />
+                      <div>
+                        <p className="text-white font-medium">Camera Error</p>
+                        <p className="text-red-200 text-sm">{error}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
             {/* Scanning Overlay */}
             <div className="absolute inset-0">
@@ -173,13 +154,24 @@ export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }:
                   </div>
                   
                   <div className="flex items-center space-x-2">
+                    {capabilities.torch && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleFlashlight}
+                        className="text-white hover:bg-white/20"
+                      >
+                        {flashlight ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
+                      </Button>
+                    )}
+                    
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={toggleFlashlight}
+                      onClick={handleSwitchCamera}
                       className="text-white hover:bg-white/20"
                     >
-                      {flashlight ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
+                      <SwitchCamera size={20} />
                     </Button>
                   </div>
                 </div>
@@ -240,7 +232,7 @@ export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }:
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={startCamera}
+                    onClick={handleStartCamera}
                     className="border-white/30 text-white hover:bg-white/20"
                   >
                     <RotateCcw size={16} className="mr-2" />
@@ -248,11 +240,12 @@ export function QRScanner({ onScan, onClose, isOpen, acceptedFormats = ['QR'] }:
                   </Button>
                   
                   <Button
-                    onClick={handleManualScan}
-                    className="bg-eco-primary hover:bg-eco-primary/90 text-white px-8"
+                    onClick={handleCapture}
+                    className="bg-primary hover:bg-primary/90 text-white px-8"
+                    disabled={!isActive}
                   >
                     <ScanIcon size={20} className="mr-2" />
-                    Capture
+                    Scan QR
                   </Button>
                 </div>
 
