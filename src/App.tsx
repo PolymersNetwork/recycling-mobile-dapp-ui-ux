@@ -4,7 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { PrivyProvider } from "@privy-io/react-auth";
+import { PolymersWalletProvider } from "@/providers/WalletProvider";
+import { BlockchainProvider } from "@/contexts/BlockchainContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import { LoginScreen } from "@/components/auth/LoginScreen";
 import { BottomNav } from "@/components/mobile/BottomNav";
@@ -14,49 +15,47 @@ import { Projects } from "@/pages/mobile/Projects";
 import { Portfolio } from "@/pages/mobile/Portfolio";
 import { Settings } from "@/pages/mobile/Settings";
 import { Marketplace } from "@/pages/mobile/Marketplace";
-import NotFound from "./pages/NotFound";
+import { Profile } from "@/pages/mobile/Profile";
+import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <PrivyProvider appId="cm4yzxk7401v8189r5b6d4aa5">
-        <LoginScreen onSuccess={() => setIsAuthenticated(true)} />
-      </PrivyProvider>
-    );
-  }
-
   return (
-    <PrivyProvider appId="cm4yzxk7401v8189r5b6d4aa5">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <div className="relative">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/scan" element={<Scan />} />
-                <Route path="/projects" element={<Projects />} />
-                <Route path="/marketplace" element={<Marketplace />} />
-                <Route path="/portfolio" element={<Portfolio />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <BottomNav />
-            </div>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </PrivyProvider>
+    <PolymersWalletProvider>
+      <BlockchainProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <div className="min-h-screen bg-background">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<LoginScreen />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/scan" element={<Scan />} />
+                  <Route path="/projects" element={<Projects />} />
+                  <Route path="/marketplace" element={<Marketplace />} />
+                  <Route path="/portfolio" element={<Portfolio />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <BottomNav />
+              </div>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </BlockchainProvider>
+    </PolymersWalletProvider>
   );
 };
 
