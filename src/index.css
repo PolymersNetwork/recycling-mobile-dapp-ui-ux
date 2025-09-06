@@ -9,45 +9,51 @@ Optimized for mobile-first with enhanced readability and spacing.
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 20%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 5%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 20%;
+    --card-foreground: 0 0% 5%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 20%;
+    --popover-foreground: 0 0% 5%;
 
-    --primary: 122 39% 23%;
+    --primary: 122 39% 23%;             /* Polymers Dark Green */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 122 24% 79%;
-    --secondary-foreground: 122 39% 23%;
+    --secondary: 122 24% 85%;           /* Light Green */
+    --secondary-foreground: 122 39% 15%;
 
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 122 24% 79%;
-    --accent-foreground: 122 39% 23%;
+    --accent: 122 24% 85%;
+    --accent-foreground: 122 39% 15%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 91%;
-    --input: 0 0% 91%;
+    --input: 0 0% 95%;
     --ring: 122 39% 23%;
 
-    --radius: 1rem;
-    --radius-sm: 0.75rem;
-    --radius-lg: 1.25rem;
+    --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1rem;
 
-    /* Polymers Network Brand Colors */
+    /* Polymers Network Brand Colors - Light Theme */
     --eco-primary: 122 39% 23%;        /* Dark Green #1B5E20 */
-    --eco-primary-light: 122 24% 79%;  /* Light Green #A5D6A7 */
-    --eco-success: 122 39% 49%;        /* Success Green */
+    --eco-primary-light: 122 35% 65%;  /* Medium Green #66BB6A */
+    --eco-primary-lighter: 122 24% 85%; /* Light Green #C8E6C9 */
+    --eco-success: 122 39% 35%;        /* Success Green */
     --eco-warning: 45 93% 47%;         /* Amber Warning */
     --eco-danger: 0 84% 60%;           /* Red Danger */
     --eco-info: 217 91% 60%;           /* Blue Info */
+    
+    /* Brand Specific Colors */
+    --brand-primary: 122 39% 23%;      /* Main Brand Green */
+    --brand-secondary: 122 24% 85%;    /* Light Brand Green */
+    --brand-accent: 122 35% 65%;       /* Medium Brand Green */
     
     /* Token Colors */
     --token-ply: 122 39% 23%;          /* PLY Token - Green */
@@ -97,33 +103,47 @@ Optimized for mobile-first with enhanced readability and spacing.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 3%;              /* Deep Black */
+    --foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 5%;                    /* Dark Card */
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 122 45% 45%;             /* Bright Green for dark theme */
+    --primary-foreground: 0 0% 3%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 122 15% 15%;           /* Dark Green */
+    --secondary-foreground: 122 45% 75%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 122 15% 15%;
+    --accent-foreground: 122 45% 75%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 0 0% 12%;
+    --input: 0 0% 8%;
+    --ring: 122 45% 45%;
+    
+    /* Polymers Network Brand Colors - Dark Theme */
+    --eco-primary: 122 45% 55%;        /* Bright Green for visibility */
+    --eco-primary-light: 122 35% 35%; /* Medium Dark Green */
+    --eco-primary-lighter: 122 15% 15%; /* Very Dark Green */
+    --eco-success: 122 45% 45%;        /* Success Green */
+    --eco-warning: 45 93% 55%;         /* Brighter Amber */
+    --eco-danger: 0 84% 65%;           /* Brighter Red */
+    --eco-info: 217 91% 65%;           /* Brighter Blue */
+    
+    /* Brand Specific Colors - Dark Theme */
+    --brand-primary: 122 45% 55%;      /* Bright Brand Green */
+    --brand-secondary: 122 15% 15%;    /* Dark Brand Green */
+    --brand-accent: 122 35% 35%;       /* Medium Brand Green */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
