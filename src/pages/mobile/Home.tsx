@@ -1,25 +1,32 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { EcoCard, EcoCardContent, EcoCardHeader, EcoCardTitle } from "@/components/ui/eco-card";
 import { EcoButton } from "@/components/ui/eco-button";
+import { WalletButton } from "@/components/wallet/WalletButton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Zap, Target, TrendingUp, Camera, Leaf } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Coins, Zap, Target, TrendingUp, Camera, Leaf, Wallet, QrCode, Trophy, Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import polymersLogo from "@/assets/polymers-logo.png";
 
 export function Home() {
+  const { connected, publicKey } = useWallet();
+  const navigate = useNavigate();
   const [user, setUser] = useState({
-    name: "Alex",
+    name: "EcoWarrior",
     level: 12,
     streakDays: 7,
-    totalTokens: 0,
-    todayTokens: 0,
+    totalTokens: 2847,
+    todayTokens: 125,
     weeklyGoal: 500,
-    weeklyProgress: 0,
+    weeklyProgress: 342,
   });
   const [recentSubmissions, setRecentSubmissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -86,154 +93,227 @@ export function Home() {
     fetchData();
   }, [toast]);
 
+  const handleScanNavigation = () => {
+    navigate('/scan');
+  };
+
+  const handleProjectsNavigation = () => {
+    navigate('/projects');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted pb-20">
-      <MobileHeader title="Good morning, Alex!" notificationCount={3} />
+    <div className="min-h-screen bg-gradient-to-br from-brand-dark via-brand-primary to-brand-dark pb-20">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-brand-dark/95 backdrop-blur-lg border-b border-brand-primary/20">
+        <div className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-accent to-brand-primary p-2">
+              <img src={polymersLogo} alt="Polymers" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white">Good morning, {user.name}!</h1>
+              <p className="text-xs text-brand-primary-light">Level {user.level} • {user.streakDays} day streak</p>
+            </div>
+          </div>
+          
+          {!connected ? (
+            <WalletButton />
+          ) : (
+            <Button variant="brand-ghost" size="icon" className="relative">
+              <Trophy className="w-5 h-5" />
+              <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs bg-brand-accent">3</Badge>
+            </Button>
+          )}
+        </div>
+      </div>
       
       <main className="p-4 space-y-6">
+        {/* Wallet Status */}
+        {!connected && (
+          <EcoCard className="border-brand-warning/30 bg-gradient-to-r from-brand-warning/10 to-brand-accent/10">
+            <EcoCardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Wallet className="w-5 h-5 text-brand-warning" />
+                  <div>
+                    <p className="font-semibold text-brand-warning">Connect Wallet</p>
+                    <p className="text-xs text-muted-foreground">Connect to start earning rewards</p>
+                  </div>
+                </div>
+                <WalletButton />
+              </div>
+            </EcoCardContent>
+          </EcoCard>
+        )}
+
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-4">
-          <EcoCard variant="eco" padding="sm">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Coins className="w-5 h-5 text-eco-primary" />
+          <EcoCard className="bg-gradient-to-br from-brand-primary/20 to-brand-accent/20 border-brand-primary/30">
+            <EcoCardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-brand-primary/30 rounded-xl backdrop-blur-sm">
+                  <Coins className="w-6 h-6 text-brand-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-primary-light">Total PLY</p>
+                  <p className="text-2xl font-bold text-white">{user.totalTokens.toLocaleString()}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total PLY</p>
-                <p className="text-lg font-bold text-eco-primary">{user.totalTokens.toLocaleString()}</p>
-              </div>
-            </div>
+            </EcoCardContent>
           </EcoCard>
           
-          <EcoCard variant="eco" padding="sm">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Zap className="w-5 h-5 text-eco-success" />
+          <EcoCard className="bg-gradient-to-br from-brand-success/20 to-brand-primary/20 border-brand-success/30">
+            <EcoCardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-brand-success/30 rounded-xl backdrop-blur-sm">
+                  <Zap className="w-6 h-6 text-brand-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-brand-primary-light">Streak</p>
+                  <p className="text-2xl font-bold text-white">{user.streakDays} days</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Streak</p>
-                <p className="text-lg font-bold text-eco-success">{user.streakDays} days</p>
-              </div>
-            </div>
+            </EcoCardContent>
           </EcoCard>
         </div>
 
         {/* Today's Progress */}
-        <EcoCard>
+        <EcoCard className="bg-gradient-to-br from-brand-dark/80 to-brand-primary/20 border-brand-primary/30">
           <EcoCardHeader>
-            <EcoCardTitle>Today's Impact</EcoCardTitle>
+            <EcoCardTitle className="text-white flex items-center space-x-2">
+              <Gift className="w-5 h-5 text-brand-accent" />
+              <span>Today's Impact</span>
+            </EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Tokens Earned</span>
-                <span className="font-semibold text-eco-primary">+{user.todayTokens} PLY</span>
+                <span className="text-sm text-brand-primary-light">Tokens Earned</span>
+                <span className="font-bold text-brand-accent text-lg">+{user.todayTokens} PLY</span>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span>Weekly Goal Progress</span>
-                  <span>{user.weeklyProgress}/{user.weeklyGoal} PLY</span>
+                  <span className="text-brand-primary-light">Weekly Goal Progress</span>
+                  <span className="text-white font-medium">{user.weeklyProgress}/{user.weeklyGoal} PLY</span>
                 </div>
-                <Progress value={(user.weeklyProgress / user.weeklyGoal) * 100} className="h-2" />
+                <Progress 
+                  value={(user.weeklyProgress / user.weeklyGoal) * 100} 
+                  className="h-3 bg-brand-dark/50" 
+                />
               </div>
             </div>
           </EcoCardContent>
         </EcoCard>
 
         {/* Quick Actions */}
-        <EcoCard>
+        <EcoCard className="bg-gradient-to-br from-brand-dark/80 to-brand-primary/20 border-brand-primary/30">
           <EcoCardHeader>
-            <EcoCardTitle>Quick Actions</EcoCardTitle>
+            <EcoCardTitle className="text-white flex items-center space-x-2">
+              <QrCode className="w-5 h-5 text-brand-accent" />
+              <span>Quick Actions</span>
+            </EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <EcoButton variant="eco" className="h-20 flex-col">
-                <Camera className="w-6 h-6 mb-1" />
-                <span className="text-xs">Scan Plastic</span>
-              </EcoButton>
+            <div className="grid grid-cols-2 gap-4">
+              <Button 
+                variant="brand"
+                onClick={handleScanNavigation}
+                className="h-20 flex-col space-y-2 text-white font-semibold"
+              >
+                <Camera className="w-7 h-7" />
+                <span className="text-sm">Scan Plastic</span>
+              </Button>
               
-              <EcoButton variant="eco-outline" className="h-20 flex-col">
-                <Target className="w-6 h-6 mb-1" />
-                <span className="text-xs">View Projects</span>
-              </EcoButton>
+              <Button 
+                variant="brand-outline"
+                onClick={handleProjectsNavigation}
+                className="h-20 flex-col space-y-2 font-semibold"
+              >
+                <Target className="w-7 h-7" />
+                <span className="text-sm">View Projects</span>
+              </Button>
             </div>
           </EcoCardContent>
         </EcoCard>
 
         {/* Daily Challenges */}
-        <EcoCard>
+        <EcoCard className="bg-gradient-to-br from-brand-dark/80 to-brand-primary/20 border-brand-primary/30">
           <EcoCardHeader>
-            <EcoCardTitle className="flex items-center justify-between">
-              Daily Challenges
-              <Badge variant="secondary" className="text-xs">2/3</Badge>
+            <EcoCardTitle className="text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Trophy className="w-5 h-5 text-brand-accent" />
+                <span>Daily Challenges</span>
+              </div>
+              <Badge className="bg-brand-accent text-brand-dark text-xs font-bold">2/3</Badge>
             </EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-eco-success/10 rounded-lg border border-eco-success/20">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-brand-success/20 to-brand-accent/10 rounded-xl border border-brand-success/30">
                 <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-eco-success rounded-full"></div>
-                  <span className="text-sm">Scan 3 plastic items</span>
+                  <div className="w-3 h-3 bg-brand-success rounded-full shadow-lg"></div>
+                  <span className="text-sm font-medium text-white">Scan 3 plastic items</span>
                 </div>
-                <span className="text-xs text-eco-success font-medium">+50 PLY</span>
+                <span className="text-sm text-brand-success font-bold">+50 PLY</span>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-brand-primary/10 to-brand-dark/20 rounded-xl border border-brand-primary/20">
                 <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
-                  <span className="text-sm">Contribute to a project</span>
+                  <div className="w-3 h-3 bg-brand-primary-light/50 rounded-full"></div>
+                  <span className="text-sm font-medium text-brand-primary-light">Contribute to a project</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">+100 PLY</span>
+                <span className="text-sm text-brand-primary-light font-bold">+100 PLY</span>
               </div>
             </div>
           </EcoCardContent>
         </EcoCard>
 
         {/* Recent Activity */}
-        <EcoCard>
+        <EcoCard className="bg-gradient-to-br from-brand-dark/80 to-brand-primary/20 border-brand-primary/30">
           <EcoCardHeader>
-            <EcoCardTitle>Recent Activity</EcoCardTitle>
+            <EcoCardTitle className="text-white flex items-center space-x-2">
+              <TrendingUp className="w-5 h-5 text-brand-accent" />
+              <span>Recent Activity</span>
+            </EcoCardTitle>
           </EcoCardHeader>
           <EcoCardContent>
             {loading ? (
               <div className="space-y-3">
-                <div className="animate-pulse flex items-center space-x-3 p-2">
-                  <div className="w-8 h-8 bg-muted rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-muted rounded mb-1"></div>
-                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                {[1, 2].map((i) => (
+                  <div key={i} className="animate-pulse flex items-center space-x-3 p-3">
+                    <div className="w-10 h-10 bg-brand-primary/30 rounded-xl"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-brand-primary/20 rounded mb-2"></div>
+                      <div className="h-3 bg-brand-primary/10 rounded w-2/3"></div>
+                    </div>
                   </div>
-                </div>
-                <div className="animate-pulse flex items-center space-x-3 p-2">
-                  <div className="w-8 h-8 bg-muted rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-muted rounded mb-1"></div>
-                    <div className="h-3 bg-muted rounded w-2/3"></div>
-                  </div>
-                </div>
+                ))}
               </div>
             ) : recentSubmissions.length > 0 ? (
               <div className="space-y-3">
                 {recentSubmissions.map((submission) => (
-                  <div key={submission.id} className="flex items-center space-x-3 p-2">
-                    <div className="w-8 h-8 bg-eco-success/20 rounded-full flex items-center justify-center">
-                      <Leaf className="w-4 h-4 text-eco-success" />
+                  <div key={submission.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-brand-success/10 to-transparent rounded-xl border border-brand-success/20">
+                    <div className="w-10 h-10 bg-gradient-to-br from-brand-success/30 to-brand-accent/20 rounded-xl flex items-center justify-center">
+                      <Leaf className="w-5 h-5 text-brand-success" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{submission.plastic_type} recycled</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-semibold text-white">{submission.plastic_type} recycled</p>
+                      <p className="text-xs text-brand-primary-light">
                         {new Date(submission.created_at).toLocaleDateString()} • 
-                        {submission.weight}kg • +{submission.reward_amount || 25} PLY
+                        {submission.weight}kg • <span className="text-brand-accent font-bold">+{submission.reward_amount || 25} PLY</span>
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground">No recent activity</p>
-                <p className="text-xs text-muted-foreground mt-1">Start recycling to see your activity here!</p>
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-brand-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Leaf className="w-8 h-8 text-brand-primary-light" />
+                </div>
+                <p className="text-sm text-brand-primary-light font-medium">No recent activity</p>
+                <p className="text-xs text-brand-primary-light/70 mt-1">Start recycling to see your activity here!</p>
               </div>
             )}
           </EcoCardContent>
